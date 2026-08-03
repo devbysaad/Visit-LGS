@@ -1,0 +1,82 @@
+# Design — CampusQuest
+
+Visual and interaction design. Inspiration screenshots live in `desingInspo/` (SkyOffice pitch deck).
+
+## Two visual registers (never mix)
+
+| Register | Where | Examples |
+| --- | --- | --- |
+| In-world | Phaser, world space | Nameplates, dialog bubbles, `Press E` prompts |
+| Overlay | React DOM above canvas | Chat, modals, HUD, join screen |
+
+In-world UI scales/occludes with the camera. Overlay UI does not.
+
+## Colour tokens (CSS custom properties)
+
+```css
+--bg-panel: #222639;
+--bg-panel-alt: #2f3251;
+--bg-scrim: rgba(14, 16, 28, 0.72);
+--accent: #33ac96;
+--accent-hover: #45cbb0;
+--border-glow: #3ad4ce;
+--text-primary: #eef1f6;
+--text-muted: #9aa3b8;
+--lgs-brand: /* from official LGS logo — logo, primary CTA, quest-complete only */;
+```
+
+Chat usernames: fixed palette of six high-contrast hues assigned by name hash (see chat inspo: Kevin orange, Dax pink, Jen-Yu green).
+
+**Do not** recolour the whole chrome to LGS brand. Dark navy is intentional for pixel readability.
+
+## Typography
+
+- **Pixel/bitmap:** in-world only; strings of five words or fewer (nameplates, prompts, quest titles).
+- **UI prose:** system UI stack, 14–16px, line-height 1.5 (building descriptions, NPC lines, help).
+
+## Pixel fidelity
+
+- Phaser: `pixelArt: true`, `roundPixels: true`
+- DOM pixel images: `image-rendering: pixelated`
+- Camera zoom: **1.5** (fallback 2.0 if edge shimmer)
+- No CSS blur/drop-shadow over the canvas region
+- Integral sprite positions/sizes
+
+## Z-index layers
+
+| Layer | z-index |
+| --- | --- |
+| Canvas | 0 |
+| HUD / objective tracker | 100 |
+| Chat panel | 200 |
+| Interaction prompt overlay (if DOM) | 300 |
+| Modal scrim | 400 |
+| Modal | 410 |
+| Toasts | 500 |
+| Join / character select | 600 |
+| Desktop-only gate | 700 |
+
+## Interaction patterns
+
+- **Proximity:** overlap sets one “selected interactable”; show in-world white hard-outline prompt under the player (`Press E to enter the Library`). Leaving clears. Only one selection at a time.
+- **E** = universal interact (buildings, NPCs, notice boards, benches). **R is retired.**
+- **Enter** = open/send chat; **Esc** = close topmost layer; **J** = quest log; **?** = help.
+- **NPC dialogue:** line-by-line on E/Space; portrait left, name above; bottom-centre panel; movement locked.
+- **Building modal:** centred over scrim — photo, name, tagline, 2–3 sentences, “who to ask”, close. Quest completion fires a toast without blocking the modal.
+- **Objective tracker:** top-left, one line current step.
+- **Chat:** bottom-left dark panel (`Press Enter to chat`), coloured names, grey system join/leave, in-world bubbles ~6s (see `Screenshot 2026-08-03 at 2.51.20 PM.png`).
+
+## Component specs (reference screenshots)
+
+| Component | Inspo file | Notes |
+| --- | --- | --- |
+| Proximity / Press E | `…2.50.39 PM.png`, `…2.51.04 PM.png` | Adapt video off; keep prompt style |
+| Zone typology | `…2.50.51 PM.png` | Map to campus zones, not office room types |
+| Screen share UI | `…2.51.04 PM.png` | **Do not ship** — pattern only for future kiosk layout ideas |
+| Chat + bubbles | `…2.51.20 PM.png` | Keep dual-view sync |
+| Whiteboard | `…2.51.36 PM.png` | **Do not ship** |
+| Custom rooms | `…2.51.50 PM.png` | **Do not ship** — mint button/panel chrome is the token source |
+
+## Join screen
+
+Name field + avatar grid + mint primary CTA. Background scene shows static pixel campus sky so launch is never a blank canvas. LGS logo uses `--lgs-brand`.

@@ -1,0 +1,14 @@
+---
+description: React and Redux UI overlay conventions
+globs: "client/src/{components,stores}/**"
+alwaysApply: false
+---
+
+# React / Redux
+
+- Functional components only
+- Redux Toolkit slices in `stores/`; keep game input out of reducers
+- When a modal or chat input focuses, call GameBridge to disable Phaser keys
+- Do not put Redux dispatches on the Phaser per-frame path
+- Campus strings come from `content/` or selectors over content — no inline building copy
+- Follow DESIGN.md tokens (navy panels, mint `#33ac96` accent, z-index table)

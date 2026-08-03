@@ -1,0 +1,27 @@
+---
+description: CampusQuest project context — stack, non-goals, content rules
+alwaysApply: true
+---
+
+# CampusQuest context
+
+2D multiplayer campus explorer for LGS Wah Cantt (Gudwal), adapted from SkyOffice.
+
+## Stack
+
+Phaser 3 + Colyseus + React/Redux + TypeScript + Tiled.
+
+## Non-goals (do not implement)
+
+- PeerJS, video chat, screen share, whiteboards
+- Custom/private/password rooms
+- User accounts or databases
+- Mobile/touch gameplay
+
+## Hard rules
+
+- Campus copy lives in `client/src/content/` (and `docs/CONTENT.md`) — never hardcode in components/scenes
+- One map, one `CampusScene`, one Colyseus room `campus`
+- Phaser never imports React or touches Redux — use `phaserEvents`
+- Update relevant `docs/` in the same change as behaviour
+- Read `AGENTS.md` and `docs/DECISIONS.md` before large changes

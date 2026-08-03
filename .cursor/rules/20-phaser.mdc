@@ -1,0 +1,15 @@
+---
+description: Phaser scene and gameplay conventions
+globs: "client/src/{scenes,characters,items,zones,anims,events}/**"
+alwaysApply: false
+---
+
+# Phaser
+
+- Scene lifecycle: create resources in `create`, clean up listeners in shutdown/destroy
+- Physics body sizes should match visible sprites; avoid oversized hitboxes
+- Never allocate heavily inside `update()` (no per-frame `new` for hot paths)
+- Emit UI intent via `phaserEvents` only — no React imports
+- Disable keyboard capture when React modal/chat has focus
+- Collision only on the `Collision` layer via `collides: true`
+- Zone `buildingId` / `npcId` must match `client/src/content/`

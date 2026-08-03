@@ -1,0 +1,14 @@
+---
+description: Content files and Tiled map conventions
+globs: "{client/src/content/**,**/*.tmx,**/assets/maps/**}"
+alwaysApply: false
+---
+
+# Content and maps
+
+- Mirror human copy from `docs/CONTENT.md` into `client/src/content/*.ts`
+- Never rename an id without updating Tiled properties + quests together
+- Map contract: 32×32, layers Ground / Decor / Collision / AbovePlayer — see MAP_SPEC.md
+- Commit `.tmx` and exported `.json` together
+- Every `buildingId` / `npcId` on the map must exist in content; fail loudly on mismatch
+- Bump quest `contentVersion` when hunt steps change

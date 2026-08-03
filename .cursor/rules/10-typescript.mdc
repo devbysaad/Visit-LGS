@@ -1,0 +1,13 @@
+---
+description: TypeScript conventions for CampusQuest
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# TypeScript
+
+- Prefer explicit types on exported functions and shared contracts in `types/`
+- Do not use `any` unless bridging untyped Phaser/Colyseus edges — narrow immediately
+- Shared client/server shapes live only in `types/` — do not duplicate interfaces
+- Prefer `const` enums or string-union message names matching `types/Messages.ts`
+- Handle errors; never empty `catch {}`

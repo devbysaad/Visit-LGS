@@ -1,0 +1,14 @@
+---
+description: Colyseus server and shared schema conventions
+globs: "{server,types}/**"
+alwaysApply: false
+---
+
+# Colyseus
+
+- One room type: `campus` — presence + chat only
+- Schema changes require updating `types/` and both client/server consumers
+- Movement is client-authoritative; server relays, does not simulate physics
+- Do not store quest progress on the server in v1
+- Keep `maxClients` documented (25); do not add auth middleware without an ADR
+- No PeerJS or WebRTC on the server
