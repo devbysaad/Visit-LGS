@@ -54,6 +54,22 @@ export default class OtherPlayer extends Player {
           this.readyToConnect = value
         }
         break
+
+      case 'areaId':
+        if (typeof value === 'string') {
+          this.areaId = value
+        }
+        break
+    }
+  }
+
+  setAreaVisible(currentAreaId: string) {
+    const show = this.areaId === currentAreaId
+    this.setVisible(show)
+    this.playerContainer.setVisible(show)
+    if (!show) {
+      this.setVelocity(0, 0)
+      this.playContainerBody.setVelocity(0, 0)
     }
   }
 

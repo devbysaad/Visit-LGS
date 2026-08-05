@@ -17,6 +17,7 @@ const MAP_PATH = path.join(root, 'client/public/assets/map/map.json')
 const BUILDINGS_TS = path.join(root, 'client/src/content/buildings.ts')
 const NPCS_TS = path.join(root, 'client/src/content/npcs.ts')
 const QUESTS_TS = path.join(root, 'client/src/content/quests.ts')
+const ROOMS_TS = path.join(root, 'client/src/content/rooms.ts')
 
 /** Extracts `id: 'foo-bar'` style string literals from a content/*.ts file. */
 function extractIds(source) {
@@ -53,6 +54,7 @@ function main() {
   const map = JSON.parse(readFileSync(MAP_PATH, 'utf-8'))
   const buildingIds = extractIds(readFileSync(BUILDINGS_TS, 'utf-8'))
   const npcIds = extractIds(readFileSync(NPCS_TS, 'utf-8'))
+  const roomIds = extractIds(readFileSync(ROOMS_TS, 'utf-8'))
   const questTargets = extractQuestTargets(readFileSync(QUESTS_TS, 'utf-8'))
 
   const getLayer = (name) => map.layers.find((layer) => layer.name === name)
@@ -90,6 +92,27 @@ function main() {
     if (!mapBuildingIds.has(id)) warnings.push(`Content building "${id}" has no matching object in the map.`)
   })
 
+  const roomsLayer = getLayer('rooms')
+  const mapRoomIds = new Set()
+  if (!roomsLayer) {
+    warnings.push('Map is missing the "rooms" object layer.')
+  } else {
+    roomsLayer.objects.forEach((object) => {
+      const roomId = getStringProperty(object, 'roomId')
+      if (!roomId) {
+        errors.push(`Map room object "${object.name || object.id}" is missing a "roomId" property.`)
+        return
+      }
+      mapRoomIds.add(roomId)
+      if (!roomIds.has(roomId)) {
+        errors.push(`Map room object "${object.name || object.id}" references unknown roomId "${roomId}".`)
+      }
+    })
+  }
+  roomIds.forEach((id) => {
+    if (!mapRoomIds.has(id)) warnings.push(`Content room "${id}" has no matching object in the map.`)
+  })
+
   const npcsLayer = getLayer('npcs')
   const mapNpcIds = new Set()
   if (!npcsLayer) {
@@ -123,12 +146,55 @@ function main() {
     }
   })
 
+  function getNumberProperty(object, propertyName) {
+    const properties = object.properties ?? []
+    const match = properties.find((property) => property.name === propertyName)
+    return typeof match?.value === 'number' ? match.value : undefined
+  }
+
+  const areasLayer = getLayer('areas')
+  const mapAreaIds = new Set()
+  if (!areasLayer) {
+    errors.push('Map is missing the "areas" object layer.')
+  } else {
+    areasLayer.objects.forEach((object) => {
+      const areaId = getStringProperty(object, 'areaId')
+      if (!areaId) {
+        errors.push(`Map area object "${object.name || object.id}" is missing "areaId".`)
+        return
+      }
+      mapAreaIds.add(areaId)
+    })
+    if (!mapAreaIds.has('outdoor')) errors.push('Map "areas" layer must include areaId "outdoor".')
+  }
+
+  const portalsLayer = getLayer('portals')
+  if (!portalsLayer) {
+    errors.push('Map is missing the "portals" object layer.')
+  } else {
+    portalsLayer.objects.forEach((object) => {
+      const portalId = getStringProperty(object, 'portalId')
+      const targetArea = getStringProperty(object, 'targetArea')
+      const spawnTileX = getNumberProperty(object, 'spawnTileX')
+      const spawnTileY = getNumberProperty(object, 'spawnTileY')
+      if (!portalId) errors.push(`Map portal "${object.name || object.id}" is missing "portalId".`)
+      if (!targetArea) errors.push(`Map portal "${object.name || object.id}" is missing "targetArea".`)
+      else if (areasLayer && !mapAreaIds.has(targetArea))
+        errors.push(`Map portal "${object.name || object.id}" targets unknown area "${targetArea}".`)
+      if (spawnTileX === undefined || spawnTileY === undefined)
+        errors.push(`Map portal "${object.name || object.id}" needs spawnTileX and spawnTileY.`)
+    })
+  }
+
   warnings.forEach((warning) => console.warn(`[validate-map] WARN: ${warning}`))
   errors.forEach((error) => console.error(`[validate-map] ERROR: ${error}`))
 
   console.log(
     `\n[validate-map] ${errors.length} error(s), ${warnings.length} warning(s). ` +
-      `Buildings: ${mapBuildingIds.size}/${buildingIds.size} on map. NPCs: ${mapNpcIds.size}/${npcIds.size} on map.`
+      `Buildings: ${mapBuildingIds.size}/${buildingIds.size} on map. ` +
+      `Rooms: ${mapRoomIds.size}/${roomIds.size} on map. ` +
+      `NPCs: ${mapNpcIds.size}/${npcIds.size} on map. ` +
+      `Areas: ${mapAreaIds.size}. Portals: ${portalsLayer?.objects?.length ?? 0}.`
   )
 
   if (errors.length > 0) {

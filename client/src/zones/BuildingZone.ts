@@ -32,7 +32,7 @@ export default class BuildingZone extends Phaser.GameObjects.Zone implements Int
   }
 
   onOverlapDialog() {
-    this.setDialogBox(`Press E to enter ${this.displayName}`)
+    this.setDialogBox(`Walk in · Press E for ${this.displayName}`)
   }
 
   onInteract() {

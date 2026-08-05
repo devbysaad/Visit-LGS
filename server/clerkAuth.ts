@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express'
 import { createClerkClient, verifyToken } from '@clerk/backend'
-import { upsertProfile } from './supabase'
+import { isPrismaConfigured, upsertProfile } from './prisma'
 
 function getBearer(req: Request): string | null {
   const header = req.headers.authorization || ''
@@ -14,14 +14,12 @@ export function createClerkAuthRouter(): Router {
   router.get('/status', (_req, res) => {
     res.json({
       clerkConfigured: Boolean(process.env.CLERK_SECRET_KEY),
-      supabaseConfigured: Boolean(
-        process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
-      ),
+      databaseConfigured: isPrismaConfigured(),
     })
   })
 
   /**
-   * Verify Clerk session JWT and upsert profile into Supabase Postgres.
+   * Verify Clerk session JWT and upsert profile into Postgres via Prisma.
    * Client calls this after SignIn with getToken().
    */
   router.post('/sync', async (req: Request, res: Response) => {
@@ -68,6 +66,8 @@ export function createClerkAuthRouter(): Router {
           displayName,
           imageUrl: user.imageUrl,
         },
+        database: result,
+        // Keep old key so older clients don't break if they still read it.
         supabase: result,
       })
     } catch (error) {

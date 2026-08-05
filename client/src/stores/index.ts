@@ -7,6 +7,9 @@ import buildingReducer from './BuildingStore'
 import npcReducer from './NpcStore'
 import questReducer from './QuestStore'
 import authReducer from './AuthStore'
+import noticeBoardReducer from './NoticeBoardStore'
+import roomInfoReducer from './RoomInfoStore'
+import boardReducer from './BoardStore'
 
 enableMapSet()
 
@@ -19,6 +22,9 @@ const store = configureStore({
     npc: npcReducer,
     quest: questReducer,
     auth: authReducer,
+    noticeBoard: noticeBoardReducer,
+    roomInfo: roomInfoReducer,
+    board: boardReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

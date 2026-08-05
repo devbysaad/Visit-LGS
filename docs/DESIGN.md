@@ -59,10 +59,18 @@ Chat usernames: fixed palette of six high-contrast hues assigned by name hash (s
 ## Interaction patterns
 
 - **Proximity:** overlap sets one “selected interactable”; show in-world white hard-outline prompt under the player (`Press E to enter the Library`). Leaving clears. Only one selection at a time.
-- **E** = universal interact (buildings, NPCs, notice boards, benches). **R is retired.**
+- **E** = universal interact (door portals, building info, interior rooms, boards, NPCs, benches). **R is retired.**
+- When several interactables overlap, priority is: chair → board → portal → NPC → room → building (so room info does not steal sit/board).
+- **Enter buildings via portals:** Press E at a labelled door → full fade → teleport onto that building’s interior island. Camera bounds clip to that area so the outdoor campus is gone until you exit. Room labels and furniture live inside.
+- **Chairs:** Press E to sit / leave. Classroom rows face the board.
+- **Notice board:** fullscreen corkboard (Among Us–style task panel) — staff pins, campus buzz, and live student posts. Press E at the outdoor Notice Board or any classroom whiteboard. Esc closes.
+- **Boards:** classroom whiteboards open the same shared campus notice board (not separate chalk UIs).
+- **Ambient life:** Local student/staff walkers patrol interiors (not networked). Real multiplayer peers only appear in your current area.
+- **Teacher:** Mr. Imran near the classrooms door explains the block.
 - **Enter** = open/send chat; **Esc** = close topmost layer; **J** = quest log; **?** = help.
 - **NPC dialogue:** line-by-line on E/Space; portrait left, name above; bottom-centre panel; movement locked.
 - **Building modal:** centred over scrim — photo, name, tagline, 2–3 sentences, “who to ask”, close. Quest completion fires a toast without blocking the modal.
+- **Library:** shelf list → open book with **Back page** / **Next page** (also ←/→). Esc returns to shelf, then closes.
 - **Objective tracker:** top-left, one line current step.
 - **Chat:** bottom-left dark panel (`Press Enter to chat`), coloured names, grey system join/leave, in-world bubbles ~6s (see `Screenshot 2026-08-03 at 2.51.20 PM.png`).
 

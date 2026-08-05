@@ -95,7 +95,7 @@ function ClerkSync() {
         )
         dispatch(setSupabaseSynced(!data.supabase.skipped))
         if (data.supabase.skipped) {
-          console.warn('[auth] Supabase sync skipped:', data.supabase.reason)
+          console.warn('[auth] Profile DB sync skipped:', data.supabase.reason)
         }
       } catch (error) {
         if (!cancelled) {

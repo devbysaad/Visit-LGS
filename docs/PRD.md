@@ -46,11 +46,18 @@ User stories with acceptance criteria. Each story is tagged with a delivery phas
 - Given `buildingId` on the zone, when the modal opens, then content comes from `content/buildings.ts` for that id.
 
 ### US-06 Notice-board kiosk
-**As a** player, **I want to** press E at a notice board, **so that** I can read timetable/FAQ text.
+**As a** player, **I want to** press E at a notice board, **so that** I can read timetable/FAQ text and pin a short note others can read.
 
 **Acceptance**
-- Given I interact with a kiosk zone, when E is pressed, then a modal shows content from the linked content entry (not WebRTC or screen share).
+- Given I interact with the notice-board building, when E is pressed, then a modal shows staff pins from content plus shared student posts (not WebRTC or freehand whiteboard).
+- Given I submit a short note, when another player opens the board (or joins later), then they can read that note.
 
+### US-06b Library reading
+**As a** player, **I want to** press E at the library and open a book, **so that** I can flip through orientation pages.
+
+**Acceptance**
+- Given the library modal is open, when I choose a book, then an open-book view shows page text with next/back controls.
+- Given I am on a page, when I press ←/→ or the nav buttons, then the page changes within the book.
 ### US-07 Sit on benches
 **As a** player, **I want to** press E near a bench to sit, **so that** I can rest in place like in SkyOffice.
 

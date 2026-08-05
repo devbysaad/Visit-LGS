@@ -21,12 +21,12 @@ Read this before changing code or docs in this repo.
 | --- | --- | --- |
 | Phaser scenes | `client/src/scenes/` | Boot → Preloader → Background → CampusScene |
 | Characters | `client/src/characters/` | MyPlayer, OtherPlayer, Npc |
-| Zones | `client/src/zones/` | BuildingZone, NpcZone, Bench |
+| Zones | `client/src/zones/` | BuildingZone, PortalZone, NpcZone, RoomZone, BoardZone |
 | React UI | `client/src/components/` | Join, HUD, Chat, Modals |
 | Redux | `client/src/stores/` | User, Room, Chat, Building, Quest |
-| Content | `client/src/content/` | buildings, npcs, quests |
+| Content | `client/src/content/` | buildings, rooms, npcs, quests, books, notices |
 | Bridge | `client/src/events/phaserEvents.ts` | Phaser emits; React never imported into Phaser |
-| Server room | `server/rooms/CampusRoom.ts` | Presence + chat only |
+| Server room | `server/rooms/CampusRoom.ts` | Presence + chat + shared notice posts |
 | Shared types | `types/` | Only shared client/server contract |
 
 ## Phaser ↔ React rule

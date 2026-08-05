@@ -48,6 +48,17 @@ export const npcs: Npc[] = [
       'Return books before the stamped date.',
     ],
   },
+  {
+    id: 'npc-teacher',
+    name: 'Mr. Imran',
+    location: 'classrooms',
+    dialogue: [
+      'Math, Physics, and Computer rooms are inside this block.',
+      'Sit facing the board — Press E on a chair.',
+      'Press E on a whiteboard to open the campus notice board and pin news for everyone.',
+      'Labs are downstairs in this wing — wait for a teacher before practicals.',
+    ],
+  },
 ]
 
 export function getNpcById(id: string): Npc | undefined {

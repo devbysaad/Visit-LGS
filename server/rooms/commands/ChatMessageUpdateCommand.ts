@@ -2,6 +2,7 @@ import { Command } from '@colyseus/command'
 import { Client } from 'colyseus'
 import { ICampusState } from '../../../types/ICampusState'
 import { ChatMessage } from '../schema/CampusState'
+import { log } from 'console'
 
 type Payload = {
   client: Client
@@ -23,7 +24,9 @@ export default class ChatMessageUpdateCommand extends Command<ICampusState, Payl
     if (chatMessages.length >= 100) chatMessages.shift()
 
     const newMessage = new ChatMessage()
-    newMessage.author = player.name
+    newMessage.author = player?.name || 'Unknown'
+    console.log('player', player?.name);
+    
     newMessage.content = content
     chatMessages.push(newMessage)
   }

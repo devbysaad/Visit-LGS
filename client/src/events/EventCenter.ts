@@ -16,5 +16,8 @@ export enum Event {
   CAMPUS_ROOM_JOIN_FAILED = 'campus-room-join-failed',
   BUILDING_INTERACT = 'building-interact',
   NPC_INTERACT = 'npc-interact',
+  ROOM_INTERACT = 'room-interact',
+  BOARD_INTERACT = 'board-interact',
+  PORTAL_ENTER = 'portal-enter',
   QUEST_LOG_TOGGLE = 'quest-log-toggle',
 }

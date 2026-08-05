@@ -14,7 +14,8 @@ Contract for the LGS Gudwal Tiled map. Violating this breaks Phaser load or cont
 
 - Tile size: **32×32** (never mix sizes)
 - Orientation: orthogonal, right-down
-- One campus map for v1 (interiors are walled areas on the same grid)
+- One campus map for v1 (outdoor + interior islands on one grid; camera bounds per `areas`)
+
 
 ## Export settings (Tiled)
 
@@ -39,8 +40,13 @@ Phaser enables collision **only** on `Collision` via `setCollisionByProperty({ c
 | Layer name | Object type / use | Required custom properties |
 | --- | --- | --- |
 | `spawns` | Spawn points | `name` = `spawn_gate` (required). Optional later: `spawn_admin`, etc. |
-| `buildings` | Building trigger rectangles | `buildingId` (string, must match `content/buildings.ts`) |
+| `areas` | Camera/physics bounds rectangles | `areaId` (`outdoor`, `library`, `classrooms`, `admin`, `canteen`), optional `displayName` |
+| `portals` | Door enter/exit triggers | `portalId`, `targetArea`, `spawnTileX`, `spawnTileY`, `label` |
+| `buildings` | Building doorway info rectangles | `buildingId` (string, must match `content/buildings.ts`) |
+| `rooms` | Interior room rectangles | `roomId` (string, must match `content/rooms.ts`) |
+| `boards` | Writable classroom/notice boards | `boardId` |
 | `npcs` | NPC anchor points | `npcId` (string, must match `content/npcs.ts`) |
+| `ambient` | Local-only student/staff walkers | `ambientId`, `areaId` |
 | `benches` | Sit targets | optional `benchId` |
 | `kiosks` | Notice boards | `buildingId` or `kioskId` matching content |
 
@@ -92,14 +98,14 @@ yarn gen-map    # tools/gen_lgs_campus.py → assets/map/map.json + assets/maps/
 yarn validate-map
 ```
 
-Layout (fictional, typical college): south **main gate** → spine path → **admin / fee / notice** → plaza → **classrooms / labs / canteen** → **library** → NW **sports field**. Office backup kept at `assets/map/map.office-backup.json`.
+Layout (fictional, typical college): south **main gate** → spine path → **admin / fee / notice** → plaza → **classrooms** → **library** → NW **sports**. Enterable buildings are **solid outdoor shells**; Press E at the door fades into a **separate interior island** east of campus (void gap). Camera bounds (`areas`) hide everything outside that building until you exit.
 
 ## Greybox guidance (real Gudwal later)
 
 No official public layout PDF. Process:
 
 1. Trace satellite footprint (Main Gudwal Rd / Sir Syed Rd) for outer walls and courtyards
-2. Update footprints in `tools/gen_lgs_campus.py` (keep the same `buildingId`s)
+2. Update footprints in `tools/gen_lgs_campus.py` (keep the same `buildingId`s / `areaId`s / `portalId`s)
 3. Playtest scale before decorating
 4. Decorate last
 
@@ -109,3 +115,4 @@ If crossing the map feels long, **shrink before decorating further**.
 
 - Follow player with `roundPixels: true`
 - Zoom **1.5** (see DESIGN.md)
+- Bounds = active `areas` rectangle so outdoor/other buildings cannot scroll into view while indoors

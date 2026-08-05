@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import { buildings } from '../content/buildings'
 import { npcs } from '../content/npcs'
 import { quests } from '../content/quests'
+import { rooms } from '../content/rooms'
 
 export interface MapValidationResult {
   errors: string[]
@@ -17,10 +18,18 @@ export function getStringProperty(
   return typeof match?.value === 'string' ? match.value : undefined
 }
 
+export function getNumberProperty(
+  object: Phaser.Types.Tilemaps.TiledObject,
+  propertyName: string
+): number | undefined {
+  const properties = (object.properties ?? []) as Array<{ name: string; value: unknown }>
+  const match = properties.find((property) => property.name === propertyName)
+  return typeof match?.value === 'number' ? match.value : undefined
+}
+
 /**
- * Validates that every Tiled `buildings`/`npcs` object references an id that exists in
- * content, that every content building/npc has a corresponding map object, and that every
- * quest target resolves to real content. See docs/MAP_SPEC.md for the contract.
+ * Validates that every Tiled `buildings`/`npcs`/`rooms` object references an id that exists in
+ * content. See docs/MAP_SPEC.md for the contract.
  */
 export function validateMapContent(map: Phaser.Tilemaps.Tilemap): MapValidationResult {
   const errors: string[] = []
@@ -28,8 +37,8 @@ export function validateMapContent(map: Phaser.Tilemaps.Tilemap): MapValidationR
 
   const buildingIds = new Set(buildings.map((building) => building.id))
   const npcIds = new Set(npcs.map((npc) => npc.id))
+  const roomIds = new Set(rooms.map((room) => room.id))
 
-  // spawns: exactly one spawn_gate required
   const spawnsLayer = map.getObjectLayer('spawns')
   if (!spawnsLayer) {
     errors.push('Map is missing the "spawns" object layer.')
@@ -44,7 +53,6 @@ export function validateMapContent(map: Phaser.Tilemaps.Tilemap): MapValidationR
     }
   }
 
-  // buildings: every map object must reference a valid buildingId
   const buildingsLayer = map.getObjectLayer('buildings')
   const mapBuildingIds = new Set<string>()
   if (!buildingsLayer) {
@@ -65,14 +73,38 @@ export function validateMapContent(map: Phaser.Tilemaps.Tilemap): MapValidationR
     })
   }
 
-  // every content building should exist somewhere on the map (loud warning, not fatal)
   buildingIds.forEach((buildingId) => {
     if (!mapBuildingIds.has(buildingId)) {
       warnings.push(`Content building "${buildingId}" has no matching object in the map "buildings" layer.`)
     }
   })
 
-  // npcs: every map object must reference a valid npcId
+  const roomsLayer = map.getObjectLayer('rooms')
+  const mapRoomIds = new Set<string>()
+  if (!roomsLayer) {
+    warnings.push('Map is missing the "rooms" object layer (enterable interiors).')
+  } else {
+    roomsLayer.objects.forEach((object) => {
+      const roomId = getStringProperty(object, 'roomId')
+      if (!roomId) {
+        errors.push(`Map room object "${object.name || object.id}" is missing a "roomId" property.`)
+        return
+      }
+      mapRoomIds.add(roomId)
+      if (!roomIds.has(roomId)) {
+        errors.push(
+          `Map room object "${object.name || object.id}" references unknown roomId "${roomId}". Add it to client/src/content/rooms.ts.`
+        )
+      }
+    })
+  }
+
+  roomIds.forEach((roomId) => {
+    if (!mapRoomIds.has(roomId)) {
+      warnings.push(`Content room "${roomId}" has no matching object in the map "rooms" layer.`)
+    }
+  })
+
   const npcsLayer = map.getObjectLayer('npcs')
   const mapNpcIds = new Set<string>()
   if (!npcsLayer) {
@@ -99,7 +131,6 @@ export function validateMapContent(map: Phaser.Tilemaps.Tilemap): MapValidationR
     }
   })
 
-  // quest targets must resolve to real content (and, for buildings, real map objects)
   quests.forEach((quest) => {
     quest.steps.forEach((step) => {
       if (step.targetType === 'building') {
@@ -124,13 +155,54 @@ export function validateMapContent(map: Phaser.Tilemaps.Tilemap): MapValidationR
     })
   })
 
+  const areasLayer = map.getObjectLayer('areas')
+  const mapAreaIds = new Set<string>()
+  if (!areasLayer) {
+    errors.push('Map is missing the "areas" object layer (camera bounds per outdoor/interior).')
+  } else {
+    areasLayer.objects.forEach((object) => {
+      const areaId = getStringProperty(object, 'areaId')
+      if (!areaId) {
+        errors.push(`Map area object "${object.name || object.id}" is missing an "areaId" property.`)
+        return
+      }
+      mapAreaIds.add(areaId)
+    })
+    if (!mapAreaIds.has('outdoor')) {
+      errors.push('Map "areas" layer must include an areaId "outdoor".')
+    }
+  }
+
+  const portalsLayer = map.getObjectLayer('portals')
+  if (!portalsLayer) {
+    errors.push('Map is missing the "portals" object layer (enter/exit building interiors).')
+  } else {
+    portalsLayer.objects.forEach((object) => {
+      const portalId = getStringProperty(object, 'portalId')
+      const targetArea = getStringProperty(object, 'targetArea')
+      const spawnTileX = getNumberProperty(object, 'spawnTileX')
+      const spawnTileY = getNumberProperty(object, 'spawnTileY')
+      if (!portalId) {
+        errors.push(`Map portal "${object.name || object.id}" is missing "portalId".`)
+      }
+      if (!targetArea) {
+        errors.push(`Map portal "${object.name || object.id}" is missing "targetArea".`)
+      } else if (areasLayer && !mapAreaIds.has(targetArea)) {
+        errors.push(
+          `Map portal "${object.name || object.id}" targets unknown area "${targetArea}".`
+        )
+      }
+      if (spawnTileX === undefined || spawnTileY === undefined) {
+        errors.push(
+          `Map portal "${object.name || object.id}" needs numeric spawnTileX and spawnTileY.`
+        )
+      }
+    })
+  }
+
   return { errors, warnings }
 }
 
-/**
- * Runs validation and logs results. Throws in DEV so mismatches fail loudly (per
- * docs/MAP_SPEC.md); only warns in production so a bad deploy doesn't hard-crash players.
- */
 export function runMapContentValidation(map: Phaser.Tilemaps.Tilemap): MapValidationResult {
   const result = validateMapContent(map)
 

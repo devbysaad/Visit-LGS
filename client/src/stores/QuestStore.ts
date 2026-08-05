@@ -20,7 +20,7 @@ export const questSlice = createSlice({
     quest: orientationHunt,
     started: initialProgress.started,
     currentStepIndex: initialProgress.currentStepIndex,
-    completedStepIds: initialProgress.completedStepIds,
+    completedStepIds: [...initialProgress.completedStepIds],
     questLogOpen: false,
     toastMessage: null as string | null,
     showCompletionScreen: false,
@@ -32,7 +32,7 @@ export const questSlice = createSlice({
     ) => {
       state.started = action.payload.started
       state.currentStepIndex = action.payload.currentStepIndex
-      state.completedStepIds = action.payload.completedStepIds
+      state.completedStepIds = [...action.payload.completedStepIds]
       if (state.started && state.currentStepIndex >= state.quest.steps.length) {
         state.showCompletionScreen = true
       }

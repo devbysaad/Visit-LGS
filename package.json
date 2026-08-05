@@ -7,7 +7,11 @@
     "start": "cd server && ts-node-dev --project tsconfig.server.json --respawn --transpile-only index.ts",
     "client": "cd client && yarn dev",
     "dev": "concurrently -k -n server,client -c cyan,magenta \"yarn start\" \"yarn client\"",
-    "heroku-postbuild": "yarn && cd types && yarn && cd ../server && tsc --project tsconfig.server.json",
+    "heroku-postbuild": "yarn && cd types && yarn && yarn prisma:generate && cd ../server && tsc --project tsconfig.server.json",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
     "validate-map": "node scripts/validate-map.mjs",
     "gen-map": "python3 tools/gen_lgs_campus.py",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -26,6 +30,7 @@
     "dotenv": "^17.4.2",
     "eslint": "^7.11.0",
     "minimist": ">=1.2.2",
+    "prisma": "6",
     "rimraf": "^2.7.1",
     "ts-node": "^8.1.0",
     "ts-node-dev": "^1.0.0-pre.63"
@@ -35,6 +40,7 @@
     "@colyseus/command": "^0.1.7",
     "@colyseus/monitor": "^0.14.0",
     "@colyseus/schema": "^1.0.46",
+    "@prisma/client": "6",
     "@supabase/supabase-js": "^2",
     "@types/cors": "^2.8.12",
     "@types/express": "^4.17.13",

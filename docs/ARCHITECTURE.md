@@ -73,10 +73,13 @@ copy; new Phaser code should emit events per the invariant above.
 ## Colyseus
 
 - Room type: `campus`, `joinOrCreate`, `maxClients: 25`
-- State: `MapSchema<Player>` (`name`, `x`, `y`, `anim`, `avatarKey`) + bounded `ArraySchema<ChatMessage>`
-- Messages: `UPDATE_PLAYER`, `UPDATE_PLAYER_NAME`, `ADD_CHAT_MESSAGE`, join/leave signals
+- State: `MapSchema<Player>` (`name`, `x`, `y`, `anim`, `readyToConnect`, `areaId`) + bounded `ArraySchema<ChatMessage>` + bounded `ArraySchema<NoticePost>`
+- Messages: `UPDATE_PLAYER`, `UPDATE_PLAYER_NAME`, `UPDATE_PLAYER_AREA`, `ADD_CHAT_MESSAGE`, `ADD_NOTICE_POST`, join/leave signals
 - **Movement is client-authoritative** — client sends position; server relays; `OtherPlayer` lerps
-- Quests/NPC/building progress are **client-only** (`localStorage` + content version) — server is presence + chat only
+- **Area visibility:** peers in a different `areaId` are hidden (same Colyseus room, local filter)
+- Quests/NPC/building progress are **client-only** (`localStorage` + content version)
+- Shared notice-board student posts are **room state + file persist** (`server/data/notice-board.json`) so later joiners and restarts still see them
+- Staff notice pins are **content-only** (`client/src/content/notices.ts`)
 
 ## Content pipeline
 
@@ -85,8 +88,16 @@ copy; new Phaser code should emit events per the invariant above.
 - `client/src/content/buildings.ts`
 - `client/src/content/npcs.ts`
 - `client/src/content/quests.ts`
+- `client/src/content/books.ts` (library shelf)
+- `client/src/content/notices.ts` (staff pins on the notice board)
 
 Staff edit these files; no component hardcoded strings for campus copy.
+
+Special building UIs:
+
+- `library` → `LibraryModal` (shelf + open-book page turn)
+- `notice-board` → `NoticeBoardModal` (staff pins + shared student posts)
+- other buildings → `BuildingModal`
 
 ## Map pipeline
 
@@ -105,4 +116,6 @@ No Phaser scene rewrite and no Redux slice required for a content-only building.
 
 ## Explicitly not in v1
 
-PeerJS/WebRTC, screen share, whiteboards, proximity voice, custom rooms, accounts/DB, mobile, in-app map editor, i18n.
+PeerJS/WebRTC, screen share, freehand whiteboards, proximity voice, custom rooms, mobile, in-app map editor, i18n.
+
+(Accounts/DB: Clerk + Supabase profiles are allowed per ADR-016. Shared notice text is room/file state, not a drawing canvas.)

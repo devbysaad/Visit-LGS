@@ -1,5 +1,5 @@
 import { Client, Room } from 'colyseus.js'
-import { ICampusState, IPlayer } from '../../../types/ICampusState'
+import { ICampusState, IPlayer, INoticePost } from '../../../types/ICampusState'
 import { Message } from '../../../types/Messages'
 import { RoomType } from '../../../types/Rooms'
 import { phaserEvents, Event } from '../events/EventCenter'
@@ -11,7 +11,8 @@ import {
   pushPlayerJoinedMessage,
   pushPlayerLeftMessage,
 } from '../stores/ChatStore'
-import { sanitizeName, sanitizeChatMessage } from '../utils/moderation'
+import { setNoticePosts, pushNoticePost } from '../stores/NoticeBoardStore'
+import { sanitizeName, sanitizeChatMessage, sanitizeNoticePost } from '../utils/moderation'
 
 export default class Network {
   private client: Client
@@ -97,6 +98,12 @@ export default class Network {
       store.dispatch(pushChatMessage(item))
     }
 
+    // Existing + new posts; clear first so a re-join does not keep stale Redux rows.
+    store.dispatch(setNoticePosts([]))
+    this.room.state.noticePosts.onAdd = (item: INoticePost) => {
+      store.dispatch(pushNoticePost(item))
+    }
+
     this.room.onMessage(Message.SEND_ROOM_DATA, (content) => {
       store.dispatch(setJoinedRoomData(content))
     })
@@ -139,6 +146,10 @@ export default class Network {
     this.room?.send(Message.UPDATE_PLAYER_NAME, { name: sanitizeName(currentName) })
   }
 
+  updatePlayerArea(areaId: string) {
+    this.room?.send(Message.UPDATE_PLAYER_AREA, { areaId })
+  }
+
   readyToConnect() {
     this.room?.send(Message.READY_TO_CONNECT)
     phaserEvents.emit(Event.MY_PLAYER_READY)
@@ -146,5 +157,21 @@ export default class Network {
 
   addChatMessage(content: string) {
     this.room?.send(Message.ADD_CHAT_MESSAGE, { content: sanitizeChatMessage(content) })
+  }
+
+  addNoticePost(content: string, boardId: string = 'campus-notice') {
+    const cleaned = sanitizeNoticePost(content)
+    if (!cleaned) {
+      console.warn('[Network] addNoticePost ignored empty content')
+      return
+    }
+    if (!this.room) {
+      console.warn('[Network] addNoticePost failed — not in campus room yet')
+      return
+    }
+    this.room.send(Message.ADD_NOTICE_POST, {
+      content: cleaned,
+      boardId: boardId || 'campus-notice',
+    })
   }
 }

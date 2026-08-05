@@ -14,16 +14,90 @@ Human-editable source of truth for campus copy. Runtime mirrors: `client/src/con
 
 | id | Display name | Tagline | Description | Photo | Who to ask | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| `main-gate` | Main Gate | Where orientation begins | This is the campus entrance. Come in through here when you arrive, and watch for cars at pickup time. If you need directions, ask at reception just inside. | `main-gate.jpg` | Reception desk | Placeholder |
-| `admin-office` | Admin Office | Forms, letters, and records | Visit for admissions follow-ups, certificates, and official letters. Bring your student ID. | `admin-office.jpg` | Office clerk | Placeholder |
-| `fee-counter` | Fee Counter | Pay and collect fee slips | Fee submissions and challan queries. Keep receipts. Peak queues near term start. | `fee-counter.jpg` | Accounts desk | Placeholder |
-| `library` | Library | Quiet study and book issue | Borrow textbooks and use reading space. Follow silence rules; return dates matter. | `library.jpg` | Librarian | Placeholder |
-| `canteen` | Canteen | Snacks and break time | Food and short breaks between periods. Keep queues orderly; dispose of litter. | `canteen.jpg` | Canteen staff | Placeholder |
-| `science-lab` | Science Lab | Experiments and practicals | Lab coats/rules when posted. Never enter unsupervised practicals. | `science-lab.jpg` | Lab attendant | Placeholder |
-| `computer-lab` | Computer Lab | IT practicals | Login with school credentials when issued. No unauthorised installs. | `computer-lab.jpg` | IT teacher | Placeholder |
-| `classrooms` | Classrooms Block | Daily lessons | Find your section on the timetable notice board. Be seated before the bell. | `classrooms.jpg` | Class teacher | Placeholder |
-| `sports-ground` | Sports Ground | PE and house matches | PE kit on sports days. Stay clear of active matches unless participating. | `sports-ground.jpg` | PE teacher | Placeholder |
-| `notice-board` | Notice Board | Timetables and announcements | Check daily for substitutions, event notices, and exam schedules. | `notice-board.jpg` | — | Placeholder |
+| `main-gate` | Main Gate | Where orientation begins | This is the campus entrance. Come in through here when you arrive, and watch for cars at pickup time. If you need directions, ask at reception just inside. | — (add `main-gate.jpg` when ready) | Reception desk | Placeholder |
+| `admin-office` | Admin Office | Forms, letters, and records | Visit for admissions follow-ups, certificates, and official letters. Bring your student ID. | — | Office clerk | Placeholder |
+| `fee-counter` | Fee Counter | Pay and collect fee slips | Fee submissions and challan queries. Keep receipts. Peak queues near term start. | — | Accounts desk | Placeholder |
+| `library` | Library | Quiet study and book issue | Borrow textbooks and use reading space. Follow silence rules; return dates matter. Opens shelf + book reader in-game. | — | Librarian | Placeholder |
+| `canteen` | Canteen | Snacks and break time | Food and short breaks between periods. Keep queues orderly; dispose of litter. | — | Canteen staff | Placeholder |
+| `science-lab` | Science Lab | Experiments and practicals | Lab coats/rules when posted. Never enter unsupervised practicals. | — | Lab attendant | Placeholder |
+| `computer-lab` | Computer Lab | IT practicals | Login with school credentials when issued. No unauthorised installs. | — | IT teacher | Placeholder |
+| `classrooms` | Classrooms Block | Daily lessons | Find your section on the timetable notice board. Be seated before the bell. | — | Class teacher | Placeholder |
+| `sports-ground` | Sports Ground | PE and house matches | PE kit on sports days. Stay clear of active matches unless participating. | — | PE teacher | Placeholder |
+| `notice-board` | Notice Board | Timetables and announcements | Check daily for substitutions, event notices, and exam schedules. Open the board to read staff pins and write a short note others can see. | — | — | Placeholder |
+
+---
+
+## Library books
+
+Shelf titles opened from the Library building modal (`client/src/content/books.ts`).
+
+| id | Title | Author | Pages | Status |
+| --- | --- | --- | --- | --- |
+| `campus-handbook` | Gudwal Campus Handbook | Student Affairs | 5 | Placeholder |
+| `study-skills` | Study Skills for New Students | Library Desk | 4 | Placeholder |
+| `science-safety` | Lab Safety Primer | Science Department | 4 | Placeholder |
+| `house-spirit` | House Spirit & Sports Days | PE Department | 4 | Placeholder |
+
+---
+
+## Interior rooms
+
+Press **E** at an outdoor door to fade into a separate interior map island (`portals` → `areas` camera bounds). Outside campus disappears while you are inside. Then Press E on a labelled room (`client/src/content/rooms.ts`).
+
+### Library (`library`)
+
+| id | Name |
+| --- | --- |
+| `lib-study-area` | Study Area |
+| `lib-computer-lab` | Library Computer Lab |
+| `lib-stacks` | Book Stacks |
+| `lib-admin` | Library Admin Desk |
+| `lib-washrooms` | Washrooms |
+
+### Classrooms block (`classrooms`)
+
+| id | Name |
+| --- | --- |
+| `class-math` | Math Classroom |
+| `class-physics` | Physics Classroom |
+| `class-computer` | Computer Classroom |
+| `lab-computer` | Computer Lab |
+| `lab-physics` | Physics Lab |
+
+### Admin (`admin-office`)
+
+| id | Name |
+| --- | --- |
+| `admin-waiting` | Waiting Area |
+| `admin-office-room` | Admin Office |
+| `admin-balcony` | Balcony |
+
+### Canteen (`canteen`)
+
+| id | Name |
+| --- | --- |
+| `canteen-hall` | Canteen Hall |
+
+Fee counter, notice board, science/computer lab doors, and sports ground stay as outdoor building info (no separate interior island yet).
+
+---
+
+## Staff notice pins
+
+Always shown on the fullscreen notice board (`client/src/content/notices.ts`). Student posts sync live via Colyseus and persist in `server/data/notice-board.json`.
+
+| id | Title | Status |
+| --- | --- | --- |
+| `staff-timetable` | Timetable — Week 1 | Placeholder |
+| `staff-fees` | Fee Counter hours | Placeholder |
+| `staff-library` | Library reminder | Placeholder |
+| `staff-faq` | Lost & found | Placeholder |
+
+### Campus buzz (seeded)
+
+Playful pins so the board feels alive (`campusBuzz` in `notices.ts`): canteen samosa rumor, library quiet hours, PE cones, IT lab Wi‑Fi omen.
+
+Opening the outdoor **Notice Board** or any classroom whiteboard opens the same fullscreen corkboard UI.
 
 ---
 
@@ -35,6 +109,7 @@ Human-editable source of truth for campus copy. Runtime mirrors: `client/src/con
 | `npc-clerk` | Mr. Hassan | `admin-office` | 1) “Admin handles certificates and letters.” 2) “Fee Counter is next door for payments.” 3) “Keep a copy of every slip you submit.” | Optional tip for fee step | Placeholder |
 | `npc-lab` | Ms. Sara | `science-lab` | 1) “Labs need supervision — don’t wander in alone.” 2) “Safety goggles when the sign says so.” 3) “Computer Lab is across the corridor.” | — | Placeholder |
 | `npc-librarian` | Ms. Nadia | `library` | 1) “Silence helps everyone revise.” 2) “Issue desk is at the front.” 3) “Return books before the stamped date.” | — | Placeholder |
+| `npc-teacher` | Mr. Imran | `classrooms` | 1) Classrooms inside this block. 2) Sit facing the board. 3) Write notes on classroom boards. 4) Labs need a teacher. | — | Placeholder |
 
 ---
 
@@ -60,4 +135,5 @@ Human-editable source of truth for campus copy. Runtime mirrors: `client/src/con
 1. Change copy here first, then mirror into `client/src/content/*.ts`.
 2. Never rename `id` without updating the Tiled map and quest targets.
 3. Keep descriptions to 2–3 short sentences.
-4. Photos: no identifiable students without permission (see ASSETS.md).
+4. Photos: only set `photo` in `buildings.ts` when the file exists under `client/public/assets/images/buildings/` — missing files spam the console with 404s. No identifiable students without permission (see ASSETS.md).
+5. Library book pages and staff notice pins live in `books.ts` / `notices.ts` — keep them short and orientation-safe.

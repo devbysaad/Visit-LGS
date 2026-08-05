@@ -94,13 +94,47 @@ Append-only ADR log. Newest at the bottom.
 - **Revisit if:** A hand-authored or real-floorplan-derived map replaces the SkyOffice greybox —
   re-place objects in Tiled directly at that point.
 
+## ADR-020 — Interior islands + door portals (supersedes hollow footprints in ADR-019)
+
+- **Date:** 2026-08-05
+- **Decision:** Keep one Phaser tilemap and one Colyseus `campus` room, but place building interiors as **separate islands** east of outdoor campus, separated by void. `areas` object layer defines camera/physics bounds; `portals` define Press-E enter/exit with fade + teleport. `Player.areaId` syncs so other players only render in the same area. Ambient walkers (`ambient` layer) are local-only décor.
+- **Rationale:** Hollow outdoor footprints still showed the whole campus after a short fade — that broke the “I’m inside the library/classroom” feel. Island + camera bounds make outside disappear without multiple Phaser scenes or rooms.
+- **Accepted cost:** Larger map (void padding); generator must keep outdoor doorsteps and interior exits in sync.
+- **Revisit when:** Real Gudwal floorplans need hand-authored `.tmx` interiors — keep `areaId` / `portalId` / `roomId` stable.
+
+## ADR-019 — Enterable building interiors + room zones
+
+- **Date:** 2026-08-05
+- **Decision:** Campus buildings are hollow walkable footprints (walls + door gap) on the same map. Interior `rooms` object layer + `content/rooms.ts` drive Press-E room info. Doorway `buildings` triggers still open building overview / library shelf / notice board.
+- **Update (2026-08-05):** Superseded for enter UX by **ADR-020** (interior islands + portals). Room/board content and Press-E room info remain.
+- **Rationale:** Orientation needs to “visit” Library rooms, classrooms/labs, and Admin waiting/office/balcony — not only outdoor info cards.
+- **Accepted cost:** Generator layout is still fictional; denser props/furniture TBD.
+- **Revisit when:** Real Gudwal floorplans arrive — keep `roomId`s stable while redrawing partitions.
+
+## ADR-018 — Prisma ORM for Supabase Postgres profiles
+
+- **Date:** 2026-08-05
+- **Decision:** Use Prisma 6 (`DATABASE_URL` transaction pooler + `DIRECT_URL` session pooler) to own the `profiles` table and Clerk auth upsert path (`server/prisma.ts`). Prefer Prisma over `@supabase/supabase-js` service-role writes for typed access.
+- **Rationale:** User-provided Supabase pooler URLs; Prisma gives migrations/`db push` and a single typed client for the Express auth sync.
+- **Accepted cost:** Must keep both pooler URLs in `.env`; schema lives in `prisma/schema.prisma` (SQL in `supabase/schema.sql` is reference only).
+- **Revisit when:** Moving fully off Supabase hosting or needing Supabase Realtime/RLS from the client.
+
+## ADR-017 — Library reader + shared notice board
+
+- **Date:** 2026-08-05
+- **Decision:** Press E on `library` opens a shelf UI with open-book page turning (content in `books.ts`). Press E on `notice-board` opens staff pins (`notices.ts`) plus student notes synced through Colyseus `noticePosts` and persisted to `server/data/notice-board.json`.
+- **Rationale:** Orientation needs readable campus material and a lightweight shared announcement surface without shipping freehand whiteboard/WebRTC from SkyOffice.
+- **Accepted cost:** Student notes are moderated lightly (length + word filter) and are not a moderated CMS; file persist is local to the server process host.
+- **Revisit when:** Staff want moderated publishing, photo notices, or DB-backed history — move posts to Supabase then.
+
 ## ADR-016 — Clerk auth + Supabase Postgres profiles
 
 - **Date:** 2026-08-03
-- **Decision:** Replace custom email/password with Clerk hosted sign-in; persist player profiles in Supabase Postgres (`profiles.clerk_id`). Server verifies Clerk JWTs and upserts with the service role key.
-- **Rationale:** Production-ready identity without building password reset/MFA; school can enable Google/magic-link in Clerk without code changes. Supabase gives managed Postgres for future quests/analytics.
+- **Decision:** Replace custom email/password with Clerk hosted sign-in; persist player profiles in Supabase Postgres (`profiles.clerk_id`).
+- **Update (2026-08-05):** Profile writes use **Prisma** (`DATABASE_URL` / `DIRECT_URL`) — see ADR-018.
+- **Rationale:** Production-ready identity without building password reset/MFA; school can enable Google/magic-link in Clerk without code changes.
 - **Accepted cost:** Requires env setup (see docs/ENV.md). App shows a setup hint if `VITE_CLERK_PUBLISHABLE_KEY` is missing.
-- **Revisit when:** School mandates student-ID SSO — add allow-list / domain restriction in Supabase or Clerk.
+- **Revisit when:** School mandates student-ID SSO — add allow-list / domain restriction in Clerk or Postgres.
 
 ## ADR-015 — Email/password auth without college IDs (interim)
 

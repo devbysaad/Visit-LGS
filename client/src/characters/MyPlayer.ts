@@ -7,6 +7,9 @@ import Network from '../services/Network'
 import Chair from '../items/Chair'
 import BuildingZone from '../zones/BuildingZone'
 import NpcZone from '../zones/NpcZone'
+import RoomZone from '../zones/RoomZone'
+import BoardZone from '../zones/BoardZone'
+import PortalZone from '../zones/PortalZone'
 
 import { phaserEvents, Event } from '../events/EventCenter'
 import store from '../stores'
@@ -53,9 +56,21 @@ export default class MyPlayer extends Player {
 
     switch (this.playerBehavior) {
       case PlayerBehavior.IDLE:
-        // if press E in front of a building or npc trigger, fire its interaction and skip movement this frame
+        // Portals first — enter/exit buildings before doorway info cards
+        if (Phaser.Input.Keyboard.JustDown(keyE) && item?.itemType === ItemType.PORTAL) {
+          ;(item as PortalZone).onInteract()
+          return
+        }
         if (Phaser.Input.Keyboard.JustDown(keyE) && item?.itemType === ItemType.BUILDING) {
           ;(item as BuildingZone).onInteract()
+          return
+        }
+        if (Phaser.Input.Keyboard.JustDown(keyE) && item?.itemType === ItemType.ROOM) {
+          ;(item as RoomZone).onInteract()
+          return
+        }
+        if (Phaser.Input.Keyboard.JustDown(keyE) && item?.itemType === ItemType.BOARD) {
+          ;(item as BoardZone).onInteract()
           return
         }
         if (Phaser.Input.Keyboard.JustDown(keyE) && item?.itemType === ItemType.NPC) {

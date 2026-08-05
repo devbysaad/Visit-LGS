@@ -5,7 +5,17 @@ import { Message } from '../../types/Messages'
 import { IRoomData } from '../../types/Rooms'
 import PlayerUpdateCommand from './commands/PlayerUpdateCommand'
 import PlayerUpdateNameCommand from './commands/PlayerUpdateNameCommand'
+import PlayerUpdateAreaCommand from './commands/PlayerUpdateAreaCommand'
 import ChatMessageUpdateCommand from './commands/ChatMessageUpdateCommand'
+import NoticePostUpdateCommand from './commands/NoticePostUpdateCommand'
+import { hydrateNoticePost, loadNoticePosts } from '../noticeBoardStore'
+
+/** Mirror client moderation — keep posts short for a school board. */
+const MAX_NOTICE_LENGTH = 280
+
+function sanitizeNoticeContent(raw: string): string {
+  return raw.trim().slice(0, MAX_NOTICE_LENGTH)
+}
 
 export class CampusRoom extends Room<CampusState> {
   private dispatcher = new Dispatcher(this)
@@ -21,7 +31,11 @@ export class CampusRoom extends Room<CampusState> {
 
     this.setState(new CampusState())
 
-    // when receiving updatePlayer message, call the PlayerUpdateCommand
+    // Restore shared notice-board posts so later joiners still see them.
+    for (const saved of loadNoticePosts()) {
+      this.state.noticePosts.push(hydrateNoticePost(saved))
+    }
+
     this.onMessage(
       Message.UPDATE_PLAYER,
       (client, message: { x: number; y: number; anim: string }) => {
@@ -34,7 +48,6 @@ export class CampusRoom extends Room<CampusState> {
       }
     )
 
-    // when receiving updatePlayerName message, call the PlayerUpdateNameCommand
     this.onMessage(Message.UPDATE_PLAYER_NAME, (client, message: { name: string }) => {
       this.dispatcher.dispatch(new PlayerUpdateNameCommand(), {
         client,
@@ -42,27 +55,43 @@ export class CampusRoom extends Room<CampusState> {
       })
     })
 
-    // when a player is ready to connect, mark them as ready
+    this.onMessage(Message.UPDATE_PLAYER_AREA, (client, message: { areaId: string }) => {
+      this.dispatcher.dispatch(new PlayerUpdateAreaCommand(), {
+        client,
+        areaId: message.areaId,
+      })
+    })
+
     this.onMessage(Message.READY_TO_CONNECT, (client) => {
       const player = this.state.players.get(client.sessionId)
       if (player) player.readyToConnect = true
     })
 
-    // when a player send a chat message, update the message array and broadcast to all connected clients except the sender
     this.onMessage(Message.ADD_CHAT_MESSAGE, (client, message: { content: string }) => {
-      // update the message array (so that players join later can also see the message)
       this.dispatcher.dispatch(new ChatMessageUpdateCommand(), {
         client,
         content: message.content,
       })
 
-      // broadcast to all currently connected clients except the sender (to render in-game dialog on top of the character)
       this.broadcast(
         Message.ADD_CHAT_MESSAGE,
         { clientId: client.sessionId, content: message.content },
         { except: client }
       )
     })
+
+    this.onMessage(
+      Message.ADD_NOTICE_POST,
+      (client, message: { content: string; boardId?: string }) => {
+        const content = sanitizeNoticeContent(message?.content ?? '')
+        if (!content) return
+        const boardId =
+          typeof message?.boardId === 'string' && message.boardId.trim()
+            ? message.boardId.trim().slice(0, 64)
+            : 'campus-notice'
+        this.dispatcher.dispatch(new NoticePostUpdateCommand(), { client, content, boardId })
+      }
+    )
   }
 
   onJoin(client: Client, options: any) {

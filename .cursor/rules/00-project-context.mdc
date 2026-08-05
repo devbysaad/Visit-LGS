@@ -13,10 +13,11 @@ Phaser 3 + Colyseus + React/Redux + TypeScript + Tiled.
 
 ## Non-goals (do not implement)
 
-- PeerJS, video chat, screen share, whiteboards
+- PeerJS, video chat, screen share, freehand whiteboards
 - Custom/private/password rooms
-- User accounts or databases
 - Mobile/touch gameplay
+
+(Shared text notice-board posts and Clerk/Supabase profiles are in-scope — see ADR-016 / ADR-017.)
 
 ## Hard rules
 

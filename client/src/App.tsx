@@ -8,6 +8,7 @@ import LoginDialog from './components/LoginDialog'
 import Chat from './components/Chat'
 import HelperButtonGroup from './components/HelperButtonGroup'
 import BuildingModal from './components/BuildingModal'
+import RoomModal from './components/RoomModal'
 import NpcDialogue from './components/NpcDialogue'
 import ObjectiveTracker from './components/ObjectiveTracker'
 import QuestLog from './components/QuestLog'
@@ -44,6 +45,7 @@ function App() {
         <>
           <ObjectiveTracker />
           <BuildingModal />
+          <RoomModal />
           <NpcDialogue />
           <QuestLog />
           <Toast />

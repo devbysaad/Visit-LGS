@@ -9,6 +9,8 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import { useAppDispatch, useAppSelector } from '../hooks'
 import { closeBuilding } from '../stores/BuildingStore'
 import { getBuildingById } from '../content/buildings'
+import LibraryModal from './LibraryModal'
+import NoticeBoardModal from './NoticeBoardModal'
 
 const Backdrop = styled.div`
   position: fixed;
@@ -141,16 +143,31 @@ export default function BuildingModal() {
   const dispatch = useAppDispatch()
   const modalOpen = useAppSelector((state) => state.building.modalOpen)
   const selectedBuildingId = useAppSelector((state) => state.building.selectedBuildingId)
-  const [photoFailed, setPhotoFailed] = useState(false)
+  const [photoReady, setPhotoReady] = useState(false)
 
   const building = selectedBuildingId ? getBuildingById(selectedBuildingId) : undefined
 
   useEffect(() => {
-    setPhotoFailed(false)
-  }, [selectedBuildingId])
+    setPhotoReady(false)
+    if (!building?.photo) return
+
+    let cancelled = false
+    const img = new Image()
+    img.onload = () => {
+      if (!cancelled) setPhotoReady(true)
+    }
+    img.onerror = () => {
+      if (!cancelled) setPhotoReady(false)
+    }
+    img.src = `/assets/images/buildings/${building.photo}`
+    return () => {
+      cancelled = true
+    }
+  }, [building?.photo, selectedBuildingId])
 
   useEffect(() => {
     if (!modalOpen) return
+    if (selectedBuildingId === 'library' || selectedBuildingId === 'notice-board') return
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         dispatch(closeBuilding())
@@ -158,20 +175,23 @@ export default function BuildingModal() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [modalOpen, dispatch])
+  }, [modalOpen, selectedBuildingId, dispatch])
 
   if (!modalOpen || !building) return null
 
+  // Dedicated UIs for interactive buildings
+  if (building.id === 'library') return <LibraryModal />
+  if (building.id === 'notice-board') return <NoticeBoardModal />
+
   const photoSrc = building.photo ? `/assets/images/buildings/${building.photo}` : undefined
-  const showImage = Boolean(photoSrc) && !photoFailed
-  const isPlaceholderCopy = !showImage
+  const showImage = Boolean(photoSrc) && photoReady
 
   return (
     <Backdrop onClick={() => dispatch(closeBuilding())}>
       <Panel onClick={(event) => event.stopPropagation()}>
         <Photo hasImage={showImage}>
           {showImage ? (
-            <img src={photoSrc} alt={building.name} onError={() => setPhotoFailed(true)} />
+            <img src={photoSrc} alt={building.name} />
           ) : (
             <PhotoPlaceholder>
               <WarningAmberIcon />
@@ -183,7 +203,7 @@ export default function BuildingModal() {
           <CloseButton aria-label="close" onClick={() => dispatch(closeBuilding())} size="small">
             <CloseIcon />
           </CloseButton>
-          {isPlaceholderCopy && (
+          {!showImage && (
             <TipBanner>
               <InfoOutlinedIcon />
               <span>

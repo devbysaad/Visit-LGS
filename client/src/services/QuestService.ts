@@ -46,7 +46,9 @@ class QuestService {
       return {
         started: Boolean(parsed.started),
         currentStepIndex: Number(parsed.currentStepIndex) || 0,
-        completedStepIds: Array.isArray(parsed.completedStepIds) ? parsed.completedStepIds : [],
+        completedStepIds: Array.isArray(parsed.completedStepIds)
+          ? [...parsed.completedStepIds]
+          : [],
       }
     } catch {
       return defaultProgress()
@@ -66,7 +68,12 @@ class QuestService {
   }
 
   getProgress(): QuestProgress {
-    return { ...this.progress }
+    return {
+      started: this.progress.started,
+      currentStepIndex: this.progress.currentStepIndex,
+      // Always copy — Redux/Immer freezes arrays put into state; never share refs.
+      completedStepIds: [...this.progress.completedStepIds],
+    }
   }
 
   hasStarted(): boolean {
@@ -101,7 +108,8 @@ class QuestService {
       return { completed: false }
     }
 
-    this.progress.completedStepIds.push(currentStep.id)
+    // Replace array (don't push) in case a frozen copy was ever assigned back.
+    this.progress.completedStepIds = [...this.progress.completedStepIds, currentStep.id]
     this.progress.currentStepIndex += 1
     this.saveProgress()
 

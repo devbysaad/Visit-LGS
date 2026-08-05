@@ -3,4 +3,8 @@ export enum ItemType {
   VENDINGMACHINE,
   BUILDING,
   NPC,
+  ROOM,
+  BOARD,
+  PORTAL,
 }
+

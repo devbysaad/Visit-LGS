@@ -24,7 +24,7 @@ app.get('/health', (_req, res) => {
   res.json({
     ok: true,
     clerk: Boolean(process.env.CLERK_SECRET_KEY),
-    supabase: Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY),
+    database: Boolean(process.env.DATABASE_URL),
   })
 })
 
@@ -48,7 +48,7 @@ if (process.env.NODE_ENV !== 'production') {
 gameServer.listen(port)
 console.log(`Listening on ws://localhost:${port}`)
 console.log(
-  `[env] CLERK_SECRET_KEY=${process.env.CLERK_SECRET_KEY ? 'set' : 'MISSING'} | SUPABASE=${
-    process.env.SUPABASE_URL ? 'set' : 'MISSING'
-  }`
+  `[env] CLERK_SECRET_KEY=${process.env.CLERK_SECRET_KEY ? 'set' : 'MISSING'} | DATABASE_URL=${
+    process.env.DATABASE_URL ? 'set' : 'MISSING'
+  } | DIRECT_URL=${process.env.DIRECT_URL ? 'set' : 'MISSING'}`
 )

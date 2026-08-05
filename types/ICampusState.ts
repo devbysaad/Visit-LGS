@@ -6,6 +6,7 @@ export interface IPlayer extends Schema {
   y: number
   anim: string
   readyToConnect: boolean
+  areaId: string
 }
 
 export interface IChatMessage extends Schema {
@@ -14,7 +15,16 @@ export interface IChatMessage extends Schema {
   content: string
 }
 
+export interface INoticePost extends Schema {
+  id: string
+  author: string
+  createdAt: number
+  content: string
+  boardId: string
+}
+
 export interface ICampusState extends Schema {
   players: MapSchema<IPlayer>
   chatMessages: ArraySchema<IChatMessage>
+  noticePosts: ArraySchema<INoticePost>
 }

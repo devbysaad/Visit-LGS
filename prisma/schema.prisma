@@ -1,0 +1,26 @@
+// CampusQuest — Prisma schema (Supabase Postgres)
+// Runtime pooler: DATABASE_URL (6543 + pgbouncer)
+// Migrations:     DIRECT_URL (5432 session mode)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Profile {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clerkId     String   @unique @map("clerk_id")
+  email       String?
+  displayName String?  @map("display_name")
+  avatarUrl   String?  @map("avatar_url")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([email], map: "profiles_email_idx")
+  @@map("profiles")
+}

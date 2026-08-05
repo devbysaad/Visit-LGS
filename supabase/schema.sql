@@ -1,5 +1,6 @@
--- CampusQuest profiles (run in Supabase SQL editor)
--- Clerk user id is the external key (text).
+-- CampusQuest profiles (reference SQL)
+-- Preferred path: `yarn prisma:push` from prisma/schema.prisma
+-- You can still paste this into the Supabase SQL editor if needed.
 
 create table if not exists public.profiles (
   id uuid primary key default gen_random_uuid(),
@@ -13,6 +14,5 @@ create table if not exists public.profiles (
 
 create index if not exists profiles_email_idx on public.profiles (email);
 
--- Enable RLS. No policies for anon/authenticated → clients cannot read/write.
--- Our Node server uses SUPABASE_SERVICE_ROLE_KEY which bypasses RLS.
+-- Optional: enable RLS. Server uses DATABASE_URL (Postgres role), not the anon key.
 alter table public.profiles enable row level security;
