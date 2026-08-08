@@ -15,6 +15,11 @@ import QuestLog from './components/QuestLog'
 import Toast from './components/Toast'
 import CompletionScreen from './components/CompletionScreen'
 import ConnectionError from './components/ConnectionError'
+import ConnectionLostOverlay from './components/ConnectionLostOverlay'
+import EggDialog from './components/EggDialog'
+import EggBanner from './components/EggBanner'
+import Codex from './components/Codex'
+import CheckpointBanner from './components/CheckpointBanner'
 
 const Backdrop = styled.div`
   position: absolute;
@@ -29,7 +34,7 @@ function App() {
 
   let ui: JSX.Element | null = null
   if (!authenticated) {
-    ui = null // AuthScreen is always mounted below until signed in
+    ui = null
   } else if (loggedIn) {
     ui = <Chat />
   } else if (roomJoined) {
@@ -40,6 +45,7 @@ function App() {
     <Backdrop>
       <AuthScreen />
       <ConnectionError />
+      <ConnectionLostOverlay />
       {ui}
       {authenticated && loggedIn && (
         <>
@@ -48,6 +54,10 @@ function App() {
           <RoomModal />
           <NpcDialogue />
           <QuestLog />
+          <EggDialog />
+          <EggBanner />
+          <Codex />
+          <CheckpointBanner />
           <Toast />
           <CompletionScreen />
         </>

@@ -22,10 +22,10 @@ const Backdrop = styled.div`
 const Panel = styled.div`
   width: 420px;
   max-width: 92vw;
-  background: #222639;
+  background: #123338;
   border-radius: 16px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-  border: 1px solid #3ad4ce55;
+  border: 1px solid #fde68a55;
   padding: 24px 28px 28px;
   position: relative;
 `
@@ -48,7 +48,7 @@ const Building = styled.p`
   gap: 6px;
 
   svg {
-    color: #33ac96;
+    color: #fb7185;
     font-size: 16px;
   }
 `
@@ -62,7 +62,7 @@ const Name = styled.h2`
 
 const Tagline = styled.p`
   margin: 0 0 16px;
-  color: #33ac96;
+  color: #fb7185;
   font-size: 14px;
   font-weight: 600;
 `

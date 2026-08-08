@@ -9,8 +9,8 @@ const Wrapper = styled.div`
   top: 16px;
   left: 16px;
   z-index: 100;
-  background: #222639e6;
-  border: 1px solid #33ac9655;
+  background: #123338e6;
+  border: 1px solid #fb718555;
   border-radius: 12px;
   padding: 10px 16px;
   max-width: 320px;
@@ -20,7 +20,7 @@ const Wrapper = styled.div`
   gap: 8px;
 
   svg {
-    color: #33ac96;
+    color: #fb7185;
     font-size: 18px;
     margin-top: 2px;
     flex-shrink: 0;
@@ -34,7 +34,7 @@ const Text = styled.div`
 
   strong {
     display: block;
-    color: #33ac96;
+    color: #fb7185;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;

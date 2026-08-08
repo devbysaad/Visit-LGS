@@ -18,7 +18,7 @@ const Backdrop = styled.div`
 
 const Panel = styled.div`
   width: min(420px, 92vw);
-  background: #222639;
+  background: #123338;
   border: 1px solid #c9a22788;
   border-radius: 12px;
   padding: 28px 24px;

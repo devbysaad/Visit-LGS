@@ -1,8 +1,21 @@
 #!/usr/bin/env python3
-"""Generate CampusQuest map: outdoor campus + separate interior 'islands'.
+"""Generate the CampusQuest map from the hand-drawn Excalidraw site plan.
 
-Vision: walk outdoor → Press E at a door → fade → only that building's
-interior is visible (camera bounds). Exit door returns to campus.
+Outdoor campus (120 x 92 tiles):
+  - Two long two-storey academic wings stacked north/south: A-Level and O-Level
+  - A landscaped walking area down the east side
+  - Parking and the sports ground along the south, main gate on the south wall
+  - A drivable ring: gate, main drive, cross drives to both wing entrances
+
+Each wing floor is an interior "island" east of the campus, laid out like the
+drawing: a north band of classrooms plus the staff room, a full-width corridor
+with the stairwell at its east end, a south band holding the 2x2 lab block, the
+open "small ground" courtyard and the six-classroom block, and — on ground
+floors — an east column with the wing library, offices and reception.
+
+Camera and physics bounds clip to the active `areas` rect, so you only ever see
+the floor you are standing on. Stairs are ordinary portals between two floor
+areas of the same wing.
 
 Usage:
   python3 tools/gen_lgs_campus.py
@@ -14,7 +27,7 @@ import json
 import os
 import shutil
 from copy import deepcopy
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -25,36 +38,141 @@ OUT_MAP = os.path.join(MAP_DIR, "map.json")
 OUT_CAMPUS = os.path.join(MAPS_DIR, "campus.json")
 BACKUP = os.path.join(MAP_DIR, "map.office-backup.json")
 
-PATH = 412
+# Tile gids. Collision comes from the tileset's `collides` property, so every gid
+# below is asserted against the template in `assert_collision_contract()` — a
+# walkable roof or a solid car park is a silent, hard-to-spot bug otherwise.
+ROAD = 412
+SIDEWALK = 835
 PLAZA = 835
 WALL = 722
 DOORSTEP = 835
-VOID = 722  # colliding — fills space between outdoor and interiors
+VOID = 722  # colliding filler between the outdoor campus and the interior islands
+PARKING = 412
+
+# Outdoor shells are all one solid gid; their look comes from the procedural
+# facades drawn in client/src/scenes/CampusDecor.ts, not from tile art.
+SHELL = 722
+GATE_POST = 1441
 
 FLOOR = {
-    "library": 898,
-    "classrooms": 514,
-    "admin": 770,
-    "canteen": 385,
-    "lab": 257,
+    "a-level-ground": 514,
+    "a-level-first": 898,
+    "o-level-ground": 770,
+    "o-level-first": 385,
+}
+CORRIDOR_GID = 1027
+EAST_GID = 257
+
+# Facade palette keys consumed by the client (see FACADE_STYLES in CampusDecor.ts).
+STYLE = {
+    "a-level-block": "teal",
+    "o-level-block": "plum",
+    "notice-board": "slate",
 }
 
 DESK_GIDS = [2612, 2628, 3018, 3019]
-DECOR_GIDS = [2596, 2782, 2798]
-ROOF = {"admin": 2085, "academic": 1457, "lab": 828, "canteen": 1318, "sport": 761, "gate": 1441}
 
-# Outdoor + void + interior islands
-W, H = 200, 90
+# ---------------------------------------------------------------------- extents
+W, H = 248, 130
 TW = TH = 32
+OUT_W, OUT_H = 120, 92
 GATE_HALF = 3
 
-# Interior island origins (tile)
-INT = {
-    "library": (110, 6),
-    "classrooms": (110, 40),
-    "admin": (155, 6),
-    "canteen": (155, 42),
+# Interior island origins (tile coords), all east of the outdoor campus.
+INT: Dict[str, Tuple[int, int]] = {
+    "a-level-ground": (124, 3),
+    "o-level-ground": (124, 35),
+    "a-level-first": (124, 67),
+    "o-level-first": (124, 99),
 }
+
+# ------------------------------------------------------------------ wing layout
+# One wing floor. Ground floors add an east column; upper floors stop at the
+# main section, so the drawn library/offices column exists only downstairs.
+MAIN_W = 100  # interior width of the main section
+EAST_W = 15  # interior width of the east column
+NORTH_H = 9
+CORR_H = 4
+SOUTH_H = 11
+WING_H = 1 + NORTH_H + 1 + CORR_H + 1 + SOUTH_H + 1  # 28
+
+# North band cell widths, west to east. The last cell absorbs the remainder.
+NORTH_GROUND = [14, 14, 14, 12, 22, 19]  # class, class, prep, washrooms, staff, stairwell
+NORTH_FIRST = [14, 34, 12, 17, 19]  # class, hall, washrooms, staff, stairwell
+
+# South band spans, measured from the first interior column of the main section.
+LAB_W = 28  # 2x2 lab block
+COURT_W = 16  # the open "small ground" courtyard
+BLOCK_CELLS = [8, 8, 8, 8, 8, 9]  # the six-classroom block
+EAST_ROWS = [9, 8, 7]  # library, office, principal or canteen — stacked in the east column
+
+WINGS = [
+    {
+        "key": "a",
+        "building": "a-level-block",
+        "name": "A-Level Block",
+        "shell": (8, 10, 76, 18),
+        "ground": "a-level-ground",
+        "first": "a-level-first",
+        "hall": "a-exam-hall",
+        "east_mid": "accounts-office",
+        "east_bottom": "principal-office",
+    },
+    {
+        "key": "o",
+        "building": "o-level-block",
+        "name": "O-Level Block",
+        "shell": (8, 38, 76, 18),
+        "ground": "o-level-ground",
+        "first": "o-level-first",
+        "hall": "o-activity-hall",
+        "east_mid": "admin-office-room",
+        "east_bottom": "canteen-hall",
+    },
+]
+
+# 30 classrooms, 8 / 7 per floor. Ids mirror client/src/content/rooms.ts.
+GROUND_CLASSES = 8
+FIRST_CLASSES = 7
+
+
+def classroom_ids(key: str, floor: str) -> List[str]:
+    n = GROUND_CLASSES if floor == "ground" else FIRST_CLASSES
+    tag = "g" if floor == "ground" else "f"
+    return [f"{key}{tag}-c{i}" for i in range(1, n + 1)]
+
+
+def assert_collision_contract(tilesets) -> Set[int]:
+    """Fail loudly if a floor tile blocks movement or a shell tile does not."""
+    colliding = set()
+    for ts in tilesets:
+        first = ts["firstgid"]
+        for tile in ts.get("tiles", []) or []:
+            for prop in tile.get("properties", []) or []:
+                if prop["name"] == "collides" and prop["value"]:
+                    colliding.add(first + tile["id"])
+
+    problems = []
+    walkable = [
+        ("ROAD", ROAD),
+        ("SIDEWALK", SIDEWALK),
+        ("PARKING", PARKING),
+        ("DOORSTEP", DOORSTEP),
+        ("CORRIDOR", CORRIDOR_GID),
+        ("EAST", EAST_GID),
+    ]
+    for name, gid in walkable:
+        if gid in colliding:
+            problems.append(f"{name} gid {gid} collides but must be walkable")
+    for name, gid in FLOOR.items():
+        if gid in colliding:
+            problems.append(f"FLOOR[{name}] gid {gid} collides but must be walkable")
+    for name, gid in [("WALL", WALL), ("VOID", VOID), ("SHELL", SHELL), ("GATE_POST", GATE_POST)]:
+        if gid not in colliding:
+            problems.append(f"{name} gid {gid} is walkable but must block")
+    if problems:
+        raise SystemExit("Tile collision contract violated:\n  - " + "\n  - ".join(problems))
+    return colliding
 
 
 def inb(x: int, y: int) -> bool:
@@ -65,14 +183,14 @@ def idx(x: int, y: int) -> int:
     return y * W + x
 
 
-def fill_rect(G: list[int], x0: int, y0: int, w: int, h: int, gid: int) -> None:
+def fill_rect(G: List[int], x0: int, y0: int, w: int, h: int, gid: int) -> None:
     for y in range(y0, y0 + h):
         for x in range(x0, x0 + w):
             if inb(x, y):
                 G[idx(x, y)] = gid
 
 
-def stroke_rect(G: list[int], x0: int, y0: int, w: int, h: int, gid: int) -> None:
+def stroke_rect(G: List[int], x0: int, y0: int, w: int, h: int, gid: int) -> None:
     for x in range(x0, x0 + w):
         if inb(x, y0):
             G[idx(x, y0)] = gid
@@ -85,7 +203,7 @@ def stroke_rect(G: list[int], x0: int, y0: int, w: int, h: int, gid: int) -> Non
             G[idx(x0 + w - 1, y)] = gid
 
 
-def hwall(G: list[int], x0: int, x1: int, y: int, gap: Optional[Tuple[int, int]] = None) -> None:
+def hwall(G: List[int], x0: int, x1: int, y: int, gap: Optional[Tuple[int, int]] = None) -> None:
     for x in range(min(x0, x1), max(x0, x1) + 1):
         if gap and gap[0] <= x <= gap[1]:
             continue
@@ -93,7 +211,7 @@ def hwall(G: list[int], x0: int, x1: int, y: int, gap: Optional[Tuple[int, int]]
             G[idx(x, y)] = WALL
 
 
-def vwall(G: list[int], y0: int, y1: int, x: int, gap: Optional[Tuple[int, int]] = None) -> None:
+def vwall(G: List[int], y0: int, y1: int, x: int, gap: Optional[Tuple[int, int]] = None) -> None:
     for y in range(min(y0, y1), max(y0, y1) + 1):
         if gap and gap[0] <= y <= gap[1]:
             continue
@@ -101,7 +219,7 @@ def vwall(G: list[int], y0: int, y1: int, x: int, gap: Optional[Tuple[int, int]]
             G[idx(x, y)] = WALL
 
 
-def hpath(G: list[int], x0: int, x1: int, y: int, gid: int = PATH, width: int = 3) -> None:
+def hroad(G: List[int], x0: int, x1: int, y: int, gid: int = ROAD, width: int = 5) -> None:
     half = width // 2
     for x in range(min(x0, x1), max(x0, x1) + 1):
         for dy in range(-half, half + 1):
@@ -109,7 +227,7 @@ def hpath(G: list[int], x0: int, x1: int, y: int, gid: int = PATH, width: int = 
                 G[idx(x, y + dy)] = gid
 
 
-def vpath(G: list[int], y0: int, y1: int, x: int, gid: int = PATH, width: int = 3) -> None:
+def vroad(G: List[int], y0: int, y1: int, x: int, gid: int = ROAD, width: int = 5) -> None:
     half = width // 2
     for y in range(min(y0, y1), max(y0, y1) + 1):
         for dx in range(-half, half + 1):
@@ -117,8 +235,40 @@ def vpath(G: list[int], y0: int, y1: int, x: int, gid: int = PATH, width: int = 
                 G[idx(x + dx, y)] = gid
 
 
-def stamp_exterior(G: list[int], x0: int, y0: int, w: int, h: int, roof: int, door: str) -> Tuple[int, int]:
-    """Solid outdoor building shell — not walkable. Doorstep outside for portal."""
+def door_h(G: List[int], x: int, y: int, gid: int, width: int = 2) -> None:
+    """Punch a doorway of `width` tiles through a horizontal wall."""
+    for dx in range(width):
+        if inb(x + dx, y):
+            G[idx(x + dx, y)] = gid
+
+
+def door_v(G: List[int], x: int, y: int, gid: int, height: int = 2) -> None:
+    """Punch a doorway of `height` tiles through a vertical wall."""
+    for dy in range(height):
+        if inb(x, y + dy):
+            G[idx(x, y + dy)] = gid
+
+
+def cells(a: int, b: int, widths: Sequence[int]) -> List[Tuple[int, int]]:
+    """Slice the span [a, b] into cells separated by a single wall tile.
+
+    The last cell absorbs whatever is left, so the span is always filled exactly
+    and a mis-summed width table shows up as one odd-sized room rather than a
+    hole in the floor plan.
+    """
+    out: List[Tuple[int, int]] = []
+    cursor = a
+    for i, width in enumerate(widths):
+        span = (b - cursor + 1) if i == len(widths) - 1 else width
+        out.append((cursor, cursor + span - 1))
+        cursor += span + 1
+    return out
+
+
+def stamp_exterior(
+    G: List[int], x0: int, y0: int, w: int, h: int, roof: int, door: str
+) -> Tuple[int, int]:
+    """Solid outdoor shell (not walkable). Returns the doorstep tile just outside."""
     fill_rect(G, x0, y0, w, h, roof)
     if door == "s":
         dx, dy = x0 + w // 2, y0 + h
@@ -131,74 +281,62 @@ def stamp_exterior(G: list[int], x0: int, y0: int, w: int, h: int, roof: int, do
     for ox in range(-2, 3):
         for oy in range(-2, 3):
             ax, ay = dx + ox, dy + oy
-            if not inb(ax, ay):
+            if not inb(ax, ay) or G[idx(ax, ay)] in (roof, WALL):
                 continue
-            if G[idx(ax, ay)] == roof or G[idx(ax, ay)] == WALL:
-                continue
-            G[idx(ax, ay)] = PLAZA if abs(ox) + abs(oy) <= 1 else PATH
+            G[idx(ax, ay)] = PLAZA if abs(ox) + abs(oy) <= 1 else SIDEWALK
     if inb(dx, dy):
         G[idx(dx, dy)] = DOORSTEP
     return dx, dy
 
 
-def stamp_interior_shell(G: list[int], x0: int, y0: int, w: int, h: int, floor: int, exit_side: str) -> Tuple[int, int]:
-    """Walkable interior rectangle with exit door gap. Returns exit doorstep tile."""
-    fill_rect(G, x0, y0, w, h, floor)
-    stroke_rect(G, x0, y0, w, h, WALL)
-    if exit_side == "s":
-        dx, dy = x0 + w // 2, y0 + h - 1
-        for ox in range(-1, 2):
-            if inb(dx + ox, dy):
-                G[idx(dx + ox, dy)] = floor
-            if inb(dx + ox, dy + 1):
-                G[idx(dx + ox, dy + 1)] = DOORSTEP
-        return dx, dy + 1
-    if exit_side == "e":
-        dx, dy = x0 + w - 1, y0 + h // 2
-        for oy in range(-1, 2):
-            if inb(dx, dy + oy):
-                G[idx(dx, dy + oy)] = floor
-            if inb(dx + 1, dy + oy):
-                G[idx(dx + 1, dy + oy)] = DOORSTEP
-        return dx + 1, dy
-    if exit_side == "w":
-        dx, dy = x0, y0 + h // 2
-        for oy in range(-1, 2):
-            if inb(dx, dy + oy):
-                G[idx(dx, dy + oy)] = floor
-            if inb(dx - 1, dy + oy):
-                G[idx(dx - 1, dy + oy)] = DOORSTEP
-        return dx - 1, dy
-    # north
-    dx, dy = x0 + w // 2, y0
-    for ox in range(-1, 2):
-        if inb(dx + ox, dy):
-            G[idx(dx + ox, dy)] = floor
-        if inb(dx + ox, dy - 1):
-            G[idx(dx + ox, dy - 1)] = DOORSTEP
-    return dx, dy - 1
+class Wing:
+    """One floor of a long academic wing, laid out like the Excalidraw plan.
 
+    North band (classrooms + staff room), a full-width corridor with the
+    stairwell at its east end, then the south band: 2x2 lab block, the open
+    "small ground" courtyard and the six-classroom block. Ground floors also get
+    the east column holding the library, offices and reception.
+    """
 
-def stamp_open_gate(G: list[int], gate_x: int) -> Tuple[int, int]:
-    wall_y = 70  # outdoor south edge inside the outdoor region
-    for gx in range(gate_x - GATE_HALF, gate_x + GATE_HALF + 1):
-        for gy in range(wall_y - 4, wall_y + 1):
-            if inb(gx, gy):
-                G[idx(gx, gy)] = PATH
-        if inb(gx, wall_y + 1):
-            G[idx(gx, wall_y + 1)] = PATH
-    for py in range(wall_y - 3, wall_y + 1):
-        lx, rx = gate_x - GATE_HALF - 1, gate_x + GATE_HALF + 1
-        if inb(lx, py):
-            G[idx(lx, py)] = ROOF["gate"]
-        if inb(rx, py):
-            G[idx(rx, py)] = ROOF["gate"]
-    fill_rect(G, gate_x - GATE_HALF - 1, wall_y - 6, GATE_HALF * 2 + 3, 3, PLAZA)
-    for gx in range(gate_x - GATE_HALF, gate_x + GATE_HALF + 1):
-        for gy in range(wall_y - 6, wall_y + 1):
-            if inb(gx, gy):
-                G[idx(gx, gy)] = PATH
-    return gate_x, wall_y - 2
+    def __init__(self, x0: int, y0: int, has_east: bool):
+        self.x0, self.y0 = x0, y0
+        self.has_east = has_east
+        self.w = 1 + MAIN_W + 1 + (EAST_W + 1 if has_east else 0)
+        self.h = WING_H
+
+        self.mx0 = x0 + 1
+        self.mx1 = x0 + MAIN_W
+        self.east_wall = self.mx1 + 1
+        self.ex0 = self.east_wall + 1
+        self.ex1 = self.ex0 + EAST_W - 1
+
+        self.ny0 = y0 + 1
+        self.ny1 = self.ny0 + NORTH_H - 1
+        self.wall_n = self.ny1 + 1
+        self.cy0 = self.wall_n + 1
+        self.cy1 = self.cy0 + CORR_H - 1
+        self.wall_s = self.cy1 + 1
+        self.sy0 = self.wall_s + 1
+        self.sy1 = self.sy0 + SOUTH_H - 1
+        self.sub_wall = self.sy0 + 5
+        self.cmid = (self.cy0 + self.cy1) // 2
+
+        self.exit_tile: Tuple[int, int] = (x0 - 1, self.cmid)
+        self.entry_tile: Tuple[int, int] = (x0 + 2, self.cmid)
+        self.stair_tile: Tuple[int, int] = (x0, y0)
+
+    def stamp_shell(self, G: List[int], floor_gid: int) -> None:
+        fill_rect(G, self.x0 - 3, self.y0 - 3, self.w + 6, self.h + 6, VOID)
+        fill_rect(G, self.x0, self.y0, self.w, self.h, floor_gid)
+        stroke_rect(G, self.x0, self.y0, self.w, self.h, WALL)
+        fill_rect(G, self.mx0, self.cy0, MAIN_W, CORR_H, CORRIDOR_GID)
+        hwall(G, self.mx0, self.mx1, self.wall_n)
+        hwall(G, self.mx0, self.mx1, self.wall_s)
+
+        # West doorway onto the campus, at the corridor end
+        for y in range(self.cy0, self.cy1 + 1):
+            G[idx(self.x0, y)] = CORRIDOR_GID
+            G[idx(self.x0 - 1, y)] = DOORSTEP
 
 
 def obj(oid, name, x, y, w, h, props=None):
@@ -216,6 +354,10 @@ def obj(oid, name, x, y, w, h, props=None):
     if props:
         o["properties"] = props
     return o
+
+
+def point_obj(oid: int, name: str, tx: int, ty: int, props: List[dict]):
+    return obj(oid, name, tx * TW + TW // 2, ty * TH + TH // 2, 0, 0, props)
 
 
 def portal_obj(
@@ -248,7 +390,6 @@ def portal_obj(
 
 
 def area_obj(oid: int, area_id: str, x0: int, y0: int, w: int, h: int, name: str):
-    """Metadata rect for camera bounds (not a physics trigger)."""
     return obj(
         oid,
         area_id,
@@ -319,7 +460,6 @@ def tiled_sprite(oid: int, name: str, tx: int, ty: int, gid: int, w: int = 32, h
 
 
 def building_door_obj(oid: int, building_id: str, dx: int, dy: int):
-    """Info trigger at outdoor door (optional overview)."""
     return obj(
         oid,
         building_id,
@@ -331,17 +471,38 @@ def building_door_obj(oid: int, building_id: str, dx: int, dy: int):
     )
 
 
+def flood(
+    G: List[int],
+    colliding: Set[int],
+    start: Tuple[int, int],
+    x0: int,
+    y0: int,
+    x1: int,
+    y1: int,
+) -> Set[Tuple[int, int]]:
+    """Walkable tiles reachable from `start`, clipped to the given rect."""
+    seen: Set[Tuple[int, int]] = set()
+    stack = [start]
+    while stack:
+        x, y = stack.pop()
+        if (x, y) in seen:
+            continue
+        if not (x0 <= x <= x1 and y0 <= y <= y1) or not inb(x, y):
+            continue
+        if G[idx(x, y)] in colliding:
+            continue
+        seen.add((x, y))
+        stack.extend([(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)])
+    return seen
+
+
 def main() -> None:
     if not os.path.exists(BACKUP) and os.path.exists(SRC_TEMPLATE):
         shutil.copy2(SRC_TEMPLATE, BACKUP)
         print(f"Backed up previous map → {BACKUP}")
 
     template = json.load(open(BACKUP if os.path.exists(BACKUP) else SRC_TEMPLATE))
-    tilesets = []
-    for ts in template["tilesets"]:
-        if ts["name"] in ("computer", "whiteboard"):
-            continue
-        tilesets.append(deepcopy(ts))
+    tilesets = [deepcopy(ts) for ts in template["tilesets"] if ts["name"] not in ("computer", "whiteboard")]
 
     max_gid_end = 1
     for ts in tilesets:
@@ -366,62 +527,93 @@ def main() -> None:
             ],
         }
     )
+    colliding = assert_collision_contract(tilesets)
+
     GRASS_A = terrain_first + 0
     GRASS_B = terrain_first + 1
     GRASS_C = terrain_first + 2
     FIELD = terrain_first + 4
 
-    # Fill everything with void first (interiors carved later; outdoor overwritten)
     G = [VOID] * (W * H)
 
-    # --- Outdoor region (0..95, 0..71) ---
-    OUT_W, OUT_H = 96, 72
+    # ------------------------------------------------------------------ outdoor
     for y in range(OUT_H):
         for x in range(OUT_W):
-            G[idx(x, y)] = GRASS_A
+            gid = GRASS_A
             if (x + y) % 5 == 0:
-                G[idx(x, y)] = GRASS_B
+                gid = GRASS_B
             elif (x * 3 + y) % 7 == 0:
-                G[idx(x, y)] = GRASS_C
+                gid = GRASS_C
+            G[idx(x, y)] = gid
 
     stroke_rect(G, 1, 1, OUT_W - 2, OUT_H - 2, WALL)
-    fill_rect(G, 2, 2, OUT_W - 4, OUT_H - 4, GRASS_A)
-    for y in range(2, OUT_H - 2):
-        for x in range(2, OUT_W - 2):
-            if (x + y) % 5 == 0:
-                G[idx(x, y)] = GRASS_B
 
-    gate_x = OUT_W // 2
-    gate_tile = stamp_open_gate(G, gate_x)
-    fill_rect(G, 6, 6, 28, 16, FIELD)
-    stroke_rect(G, 6, 6, 28, 16, PATH)
-    fill_rect(G, gate_x - 8, 30, 16, 10, PLAZA)
-    vpath(G, OUT_H - 3, 14, gate_x, width=5)
-    hpath(G, 6, OUT_W - 7, 36, width=3)
-    hpath(G, 6, OUT_W - 7, 20, width=3)
-    vpath(G, 8, 42, 20, width=3)
-    vpath(G, 8, 42, 72, width=3)
+    DRIVE_X = 88
+    gate_x, gate_y = DRIVE_X, OUT_H - 4
 
-    # Outdoor shells (solid) — portals stand on doorsteps
-    exteriors = [
-        ("library", 62, 10, 14, 10, "academic", "s"),
-        ("classrooms", 10, 26, 16, 10, "academic", "e"),
-        ("admin-office", 62, 38, 12, 8, "admin", "w"),
-        ("canteen", 36, 46, 12, 7, "canteen", "n"),
-        ("fee-counter", 78, 40, 8, 6, "admin", "w"),
-        ("notice-board", 52, 40, 6, 5, "admin", "s"),
-        ("science-lab", 10, 42, 10, 7, "lab", "e"),
-        ("computer-lab", 10, 52, 10, 7, "lab", "e"),
-        ("sports-ground", 12, 10, 10, 5, "sport", "s"),
-    ]
-    outdoor_doors: Dict[str, Tuple[int, int]] = {"main-gate": gate_tile}
-    for bid, bx, by, bw, bh, rkey, door in exteriors:
-        outdoor_doors[bid] = stamp_exterior(G, bx, by, bw, bh, ROOF[rkey], door)
+    # Landscaped walking area down the east side, laid out before the drive so
+    # the perimeter road stays on top of it.
+    WALK = (94, 8, 21, 73)
+    fill_rect(G, *WALK, GRASS_B)
+    stroke_rect(G, WALK[0] + 2, WALK[1] + 4, WALK[2] - 4, WALK[3] - 8, SIDEWALK)
+    for wy in range(WALK[1] + 6, WALK[1] + WALK[3] - 6):
+        G[idx(WALK[0] + WALK[2] // 2, wy)] = SIDEWALK
 
+    # Drivable spine: gate to the north edge, with cross drives at each wing
+    vroad(G, 6, gate_y + 2, DRIVE_X, width=5)
+    hroad(G, 10, DRIVE_X, 6, width=5)
+    hroad(G, 10, DRIVE_X, 32, width=5)
+    hroad(G, 10, DRIVE_X, 60, width=5)
+    hroad(G, 10, 112, 86, width=5)
+
+    # Gate opening in the south wall
     for gx in range(gate_x - GATE_HALF, gate_x + GATE_HALF + 1):
-        for gy in range(OUT_H - 8, OUT_H - 1):
+        for gy in range(gate_y - 2, OUT_H - 1):
             if inb(gx, gy):
-                G[idx(gx, gy)] = PATH
+                G[idx(gx, gy)] = ROAD
+    for gy in range(gate_y - 2, OUT_H - 1):
+        for lx in (gate_x - GATE_HALF - 1, gate_x + GATE_HALF + 1):
+            if inb(lx, gy):
+                G[idx(lx, gy)] = GATE_POST
+
+    # South strip: staff parking west, sports ground east
+    PARK = (8, 66, 33, 17)
+    fill_rect(G, *PARK, PARKING)
+    stroke_rect(G, *PARK, SIDEWALK)
+    for sx in range(PARK[0] + 3, PARK[0] + PARK[2] - 2, 4):
+        for sy in range(PARK[1] + 2, PARK[1] + PARK[3] - 2):
+            if inb(sx, sy):
+                G[idx(sx, sy)] = SIDEWALK
+
+    PLAY = (46, 66, 27, 17)
+    fill_rect(G, *PLAY, FIELD)
+    stroke_rect(G, *PLAY, SIDEWALK)
+
+    exteriors = [
+        (wing["building"], *wing["shell"], "s", 2, wing["name"]) for wing in WINGS
+    ] + [("notice-board", 78, 68, 6, 5, "s", 1, "Notice Board")]
+
+    outdoor_doors: Dict[str, Tuple[int, int]] = {"main-gate": (gate_x, gate_y - 1)}
+    facades: List[dict] = []
+    for bid, bx, by, bw, bh, door, storeys, label in exteriors:
+        outdoor_doors[bid] = stamp_exterior(G, bx, by, bw, bh, SHELL, door)
+        facades.append(
+            obj(
+                0,
+                bid,
+                bx * TW,
+                by * TH,
+                bw * TW,
+                bh * TH,
+                [
+                    {"name": "buildingId", "type": "string", "value": bid},
+                    {"name": "style", "type": "string", "value": STYLE[bid]},
+                    {"name": "doorSide", "type": "string", "value": door},
+                    {"name": "storeys", "type": "int", "value": storeys},
+                    {"name": "label", "type": "string", "value": label},
+                ],
+            )
+        )
 
     next_id = 1
     portals: List[dict] = []
@@ -433,281 +625,509 @@ def main() -> None:
     decor: List[dict] = []
     buildings: List[dict] = []
     npcs: List[dict] = []
+    vehicles: List[dict] = []
+    props: List[dict] = []
+    ambient_objs: List[dict] = []
 
     chair_gid = next((ts["firstgid"] for ts in tilesets if ts["name"] == "chair"), None)
     chair_up = (chair_gid + 1) if chair_gid else None
     chair_down = (chair_gid + 5) if chair_gid else None
 
-    def add_chairs(room_tag: str, rx: int, ry: int, rw: int, rh: int, direction: str = "up"):
+    def add_prop(kind: str, tx: int, ty: int, rot: int = 0):
         nonlocal next_id
-        gid = chair_up if direction == "up" else chair_down
-        if not gid:
-            return
-        for row, ty in enumerate(range(ry + 3, ry + rh - 1, 2)):
-            if row > 2:
-                break
-            for col, tx in enumerate(range(rx + 2, rx + rw - 2, 2)):
-                chairs.append(chair_obj(next_id, f"c-{room_tag}-{row}-{col}", tx, ty, gid, direction))
-                next_id += 1
-
-    def add_class_kit(tag: str, rx: int, ry: int, rw: int, rh: int, board_id: str):
-        nonlocal next_id
-        boards.append(board_obj(next_id, board_id, rx + rw // 2 - 1, ry + 1))
-        next_id += 1
-        if DESK_GIDS:
-            desks.append(tiled_sprite(next_id, f"desk-{tag}", rx + rw // 2, ry + 2, DESK_GIDS[0]))
-            next_id += 1
-        add_chairs(tag, rx, ry, rw, rh, "up")
-
-    # Outdoor area bounds metadata
-    areas.append(area_obj(next_id, "outdoor", 0, 0, OUT_W, OUT_H, "Campus Grounds"))
-    next_id += 1
-
-    # --- LIBRARY INTERIOR ---
-    lx, ly = INT["library"]
-    lw, lh = 28, 22
-    fill_rect(G, lx - 2, ly - 2, lw + 4, lh + 4, VOID)  # dark surround
-    lib_exit = stamp_interior_shell(G, lx, ly, lw, lh, FLOOR["library"], "s")
-    vwall(G, ly + 1, ly + 10, lx + 14, gap=(ly + 4, ly + 6))
-    hwall(G, lx + 1, lx + lw - 2, ly + 10, gap=(lx + 12, lx + 15))
-    hwall(G, lx + 1, lx + lw - 2, ly + 16, gap=(lx + 12, lx + 15))
-    vwall(G, ly + 17, ly + lh - 2, lx + 14, gap=(ly + 17, ly + 18))
-    rooms.extend(
-        [
-            room_obj(next_id, "lib-study-area", lx + 1, ly + 1, 13, 9),
-            room_obj(next_id + 1, "lib-computer-lab", lx + 15, ly + 1, 12, 9),
-            room_obj(next_id + 2, "lib-stacks", lx + 1, ly + 11, 26, 5),
-            room_obj(next_id + 3, "lib-admin", lx + 1, ly + 17, 13, 4),
-            room_obj(next_id + 4, "lib-washrooms", lx + 15, ly + 17, 12, 4),
-        ]
-    )
-    next_id += 5
-    add_chairs("lib-study", lx + 1, ly + 1, 13, 9, "down")
-    add_class_kit("lib-pc", lx + 15, ly + 1, 12, 9, "board-lib-computer")
-    boards.append(board_obj(next_id, "board-lib-admin", lx + 3, ly + 17, 2, 1))
-    next_id += 1
-    areas.append(area_obj(next_id, "library", lx - 1, ly - 1, lw + 2, lh + 2, "Library"))
-    next_id += 1
-    # enter portal outdoor → interior spawn (inside near exit)
-    odx, ody = outdoor_doors["library"]
-    portals.append(
-        portal_obj(
-            next_id,
-            "enter-library",
-            odx,
-            ody,
-            "library",
-            lx + lw // 2,
-            ly + lh - 3,
-            "Enter Library",
-        )
-    )
-    next_id += 1
-    portals.append(
-        portal_obj(
-            next_id,
-            "exit-library",
-            lib_exit[0],
-            lib_exit[1],
-            "outdoor",
-            odx,
-            ody + 1,
-            "Exit to Campus",
-        )
-    )
-    next_id += 1
-
-    # --- CLASSROOMS INTERIOR ---
-    cx, cy = INT["classrooms"]
-    cw, ch = 36, 26
-    fill_rect(G, cx - 2, cy - 2, cw + 4, ch + 4, VOID)
-    class_exit = stamp_interior_shell(G, cx, cy, cw, ch, FLOOR["classrooms"], "e")
-    vwall(G, cy + 1, cy + 12, cx + 12, gap=(cy + 5, cy + 7))
-    vwall(G, cy + 1, cy + 12, cx + 24, gap=(cy + 5, cy + 7))
-    hwall(G, cx + 1, cx + cw - 2, cy + 12, gap=(cx + 16, cx + 19))
-    vwall(G, cy + 13, cy + ch - 2, cx + 18, gap=(cy + 16, cy + 18))
-    rooms.extend(
-        [
-            room_obj(next_id, "class-math", cx + 1, cy + 1, 11, 11),
-            room_obj(next_id + 1, "class-physics", cx + 13, cy + 1, 11, 11),
-            room_obj(next_id + 2, "class-computer", cx + 25, cy + 1, 10, 11),
-            room_obj(next_id + 3, "lab-computer", cx + 1, cy + 13, 17, 12),
-            room_obj(next_id + 4, "lab-physics", cx + 19, cy + 13, 16, 12),
-        ]
-    )
-    next_id += 5
-    add_class_kit("math", cx + 1, cy + 1, 11, 11, "board-class-math")
-    add_class_kit("phys", cx + 13, cy + 1, 11, 11, "board-class-physics")
-    add_class_kit("comp", cx + 25, cy + 1, 10, 11, "board-class-computer")
-    add_class_kit("labc", cx + 1, cy + 13, 17, 12, "board-lab-computer")
-    add_class_kit("labp", cx + 19, cy + 13, 16, 12, "board-lab-physics")
-    areas.append(area_obj(next_id, "classrooms", cx - 1, cy - 1, cw + 2, ch + 2, "Classrooms"))
-    next_id += 1
-    odx, ody = outdoor_doors["classrooms"]
-    portals.append(
-        portal_obj(next_id, "enter-classrooms", odx, ody, "classrooms", cx + cw - 4, cy + ch // 2, "Enter Classrooms")
-    )
-    next_id += 1
-    portals.append(
-        portal_obj(next_id, "exit-classrooms", class_exit[0], class_exit[1], "outdoor", odx - 1, ody, "Exit to Campus")
-    )
-    next_id += 1
-
-    # --- ADMIN INTERIOR ---
-    ax, ay = INT["admin"]
-    aw, ah = 26, 20
-    fill_rect(G, ax - 2, ay - 2, aw + 4, ah + 4, VOID)
-    admin_exit = stamp_interior_shell(G, ax, ay, aw, ah, FLOOR["admin"], "w")
-    vwall(G, ay + 1, ay + 11, ax + 13, gap=(ay + 5, ay + 7))
-    hwall(G, ax + 1, ax + aw - 2, ay + 11, gap=(ax + 10, ax + 13))
-    rooms.extend(
-        [
-            room_obj(next_id, "admin-waiting", ax + 1, ay + 1, 12, 10),
-            room_obj(next_id + 1, "admin-office-room", ax + 14, ay + 1, 11, 10),
-            room_obj(next_id + 2, "admin-balcony", ax + 1, ay + 12, 24, 7),
-        ]
-    )
-    next_id += 3
-    add_chairs("wait", ax + 1, ay + 1, 12, 10, "down")
-    if DESK_GIDS:
-        desks.append(tiled_sprite(next_id, "desk-admin", ax + 18, ay + 4, DESK_GIDS[1]))
-        next_id += 1
-    boards.append(board_obj(next_id, "board-admin", ax + 16, ay + 1))
-    next_id += 1
-    areas.append(area_obj(next_id, "admin", ax - 1, ay - 1, aw + 2, ah + 2, "Admin Building"))
-    next_id += 1
-    odx, ody = outdoor_doors["admin-office"]
-    portals.append(portal_obj(next_id, "enter-admin", odx, ody, "admin", ax + 3, ay + ah // 2, "Enter Admin"))
-    next_id += 1
-    portals.append(
-        portal_obj(next_id, "exit-admin", admin_exit[0], admin_exit[1], "outdoor", odx + 1, ody, "Exit to Campus")
-    )
-    next_id += 1
-
-    # --- CANTEEN INTERIOR ---
-    qx, qy = INT["canteen"]
-    qw, qh = 24, 18
-    fill_rect(G, qx - 2, qy - 2, qw + 4, qh + 4, VOID)
-    can_exit = stamp_interior_shell(G, qx, qy, qw, qh, FLOOR["canteen"], "n")
-    rooms.append(room_obj(next_id, "canteen-hall", qx + 1, qy + 1, qw - 2, qh - 2))
-    next_id += 1
-    add_chairs("canteen", qx + 1, qy + 5, qw - 2, qh - 6, "down")
-    if DESK_GIDS:
-        desks.append(tiled_sprite(next_id, "counter-canteen", qx + qw // 2, qy + 2, DESK_GIDS[2]))
-        next_id += 1
-    areas.append(area_obj(next_id, "canteen", qx - 1, qy - 1, qw + 2, qh + 2, "Canteen"))
-    next_id += 1
-    odx, ody = outdoor_doors["canteen"]
-    # Spawn in clear aisle south of the counter (not on chairs/desk)
-    canteen_spawn = (qx + qw // 2, qy + 8)
-    portals.append(
-        portal_obj(next_id, "enter-canteen", odx, ody, "canteen", canteen_spawn[0], canteen_spawn[1], "Enter Canteen")
-    )
-    next_id += 1
-    portals.append(
-        portal_obj(
-            next_id,
-            "exit-canteen",
-            can_exit[0],
-            can_exit[1],
-            "outdoor",
-            odx,
-            ody,
-            "Exit to Campus",
-        )
-    )
-    next_id += 1
-
-    # Outdoor building info triggers + portals for smaller buildings → still outdoor info only
-    for bid, (dx, dy) in outdoor_doors.items():
-        buildings.append(building_door_obj(next_id, bid, dx, dy))
-        next_id += 1
-
-    # NPCs (outdoor)
-    npc_places = {
-        "npc-senior": (gate_x + 3, OUT_H - 5),
-        "npc-clerk": (outdoor_doors["admin-office"][0] - 1, outdoor_doors["admin-office"][1]),
-        "npc-lab": (outdoor_doors["science-lab"][0] + 1, outdoor_doors["science-lab"][1]),
-        "npc-librarian": (outdoor_doors["library"][0], outdoor_doors["library"][1] + 1),
-        "npc-teacher": (outdoor_doors["classrooms"][0] + 1, outdoor_doors["classrooms"][1]),
-    }
-    for nid, (nx, ny) in npc_places.items():
-        npcs.append(
-            obj(
+        props.append(
+            point_obj(
                 next_id,
-                nid,
-                nx * TW + TW // 2,
-                ny * TH + TH // 2,
-                0,
-                0,
-                [{"name": "npcId", "type": "string", "value": nid}],
-            )
-        )
-        next_id += 1
-
-    # Interior ambient NPC anchors (students / staff standing points — Phaser will animate)
-    ambient = [
-        ("ambient-lib-1", lx + 4, ly + 4, "library"),
-        ("ambient-lib-2", lx + 20, ly + 5, "library"),
-        ("ambient-class-1", cx + 5, cy + 6, "classrooms"),
-        ("ambient-class-2", cx + 16, cy + 6, "classrooms"),
-        ("ambient-class-3", cx + 8, cy + 18, "classrooms"),
-        ("ambient-admin-1", ax + 5, ay + 5, "admin"),
-        ("ambient-canteen-1", qx + 8, qy + 8, "canteen"),
-        ("ambient-canteen-2", qx + 14, qy + 10, "canteen"),
-    ]
-    ambient_objs = []
-    for name, tx, ty, area in ambient:
-        ambient_objs.append(
-            obj(
-                next_id,
-                name,
-                tx * TW + TW // 2,
-                ty * TH + TH // 2,
-                0,
-                0,
+                f"{kind}-{tx}-{ty}",
+                tx,
+                ty,
                 [
-                    {"name": "ambientId", "type": "string", "value": name},
-                    {"name": "areaId", "type": "string", "value": area},
+                    {"name": "kind", "type": "string", "value": kind},
+                    {"name": "rotation", "type": "int", "value": rot},
                 ],
             )
         )
         next_id += 1
 
-    spawn_tx, spawn_ty = gate_x, OUT_H - 3
-    G[idx(spawn_tx, spawn_ty)] = PATH
+    def add_chairs(tag: str, rx: int, ry: int, rw: int, rh: int, direction: str, max_rows: int = 2):
+        nonlocal next_id
+        gid = chair_up if direction == "up" else chair_down
+        if not gid:
+            return
+        for row, ty in enumerate(range(ry + 3, ry + rh - 1, 3)):
+            if row >= max_rows:
+                break
+            for col, tx in enumerate(range(rx + 2, rx + rw - 2, 3)):
+                chairs.append(chair_obj(next_id, f"c-{tag}-{row}-{col}", tx, ty, gid, direction))
+                next_id += 1
+
+    def add_room(room_id: str, rx: int, ry: int, rw: int, rh: int):
+        nonlocal next_id
+        rooms.append(room_obj(next_id, room_id, rx, ry, rw, rh))
+        next_id += 1
+
+    def add_board(board_id: str, rx: int, ry: int, rw: int):
+        nonlocal next_id
+        boards.append(board_obj(next_id, board_id, rx + rw // 2 - 1, ry))
+        next_id += 1
+
+    def add_desk(tag: str, tx: int, ty: int, gid: int):
+        nonlocal next_id
+        desks.append(tiled_sprite(next_id, f"desk-{tag}", tx, ty, gid))
+        next_id += 1
+
+    def add_classroom(room_id: str, rx: int, ry: int, rw: int, rh: int):
+        add_room(room_id, rx, ry, rw, rh)
+        add_board(f"board-{room_id}", rx, ry, rw)
+        add_desk(room_id, rx + rw // 2, ry + 1, DESK_GIDS[0])
+        add_chairs(room_id, rx, ry, rw, rh, "up", max_rows=3)
+
+    def add_ambient(tx: int, ty: int, area_id: str):
+        nonlocal next_id
+        ambient_objs.append(
+            point_obj(
+                next_id,
+                f"ambient-{len(ambient_objs)}",
+                tx,
+                ty,
+                [
+                    {"name": "ambientId", "type": "string", "value": f"ambient-{len(ambient_objs)}"},
+                    {"name": "areaId", "type": "string", "value": area_id},
+                ],
+            )
+        )
+        next_id += 1
+
+    areas.append(area_obj(next_id, "outdoor", 0, 0, OUT_W, OUT_H, "Campus Grounds"))
+    next_id += 1
+
+    # ------------------------------------------------------------------- wings
+    wing_floors: Dict[str, Wing] = {}
+    reach_targets: Dict[str, List[Tuple[str, Tuple[int, int]]]] = {}
+
+    for spec in WINGS:
+        key = spec["key"]
+        for floor in ("ground", "first"):
+            area_id = spec[floor]
+            fx, fy = INT[area_id]
+            is_ground = floor == "ground"
+            wing = Wing(fx, fy, has_east=is_ground)
+            wing.stamp_shell(G, FLOOR[area_id])
+            wing_floors[area_id] = wing
+            targets: List[Tuple[str, Tuple[int, int]]] = []
+
+            classes = classroom_ids(key, floor)
+            floor_name = "Ground Floor" if is_ground else "First Floor"
+            label = f"{spec['name']} · {floor_name}"
+
+            # --- north band: classrooms, service rooms, staff room, stairwell
+            widths = NORTH_GROUND if is_ground else NORTH_FIRST
+            north = cells(wing.mx0, wing.mx1, widths)
+            for i, (cx0, cx1) in enumerate(north):
+                if i > 0:
+                    vwall(G, wing.ny0, wing.ny1, cx0 - 1)
+                door_h(G, (cx0 + cx1) // 2, wing.wall_n, FLOOR[area_id])
+
+            n_class = 2 if is_ground else 1
+            north_ids = classes[:n_class]
+            if is_ground:
+                north_ids = north_ids + [f"{key}-prep-room", f"{key}-washrooms", f"{key}-staff-room"]
+            else:
+                north_ids = north_ids + [spec["hall"], f"{key}-washrooms-upper", f"{key}-staff-room-upper"]
+
+            for room_id, (cx0, cx1) in zip(north_ids, north):
+                rw = cx1 - cx0 + 1
+                if room_id in classes:
+                    add_classroom(room_id, cx0, wing.ny0, rw, NORTH_H)
+                else:
+                    add_room(room_id, cx0, wing.ny0, rw, NORTH_H)
+                    add_desk(room_id, cx0 + rw // 2, wing.ny0 + 2, DESK_GIDS[1])
+                    add_chairs(room_id, cx0, wing.ny0, rw, NORTH_H, "down")
+                targets.append((room_id, (cx0 + rw // 2, wing.ny0 + NORTH_H // 2)))
+
+            # Stairwell is the last north cell, beside the staff room
+            stair_x0, stair_x1 = north[-1]
+            wing.stair_tile = ((stair_x0 + stair_x1) // 2, wing.ny0 + NORTH_H // 2)
+            add_prop("stairs", wing.stair_tile[0], wing.stair_tile[1])
+            targets.append(("stairwell", wing.stair_tile))
+
+            # --- south band
+            south_ids = classes[n_class:]
+            lab_x0, lab_x1 = wing.mx0, wing.mx0 + LAB_W - 1
+            court_x0, court_x1 = lab_x1 + 2, lab_x1 + 1 + COURT_W
+            block_x0, block_x1 = court_x1 + 2, wing.mx1
+
+            vwall(G, wing.sy0, wing.sy1, lab_x1 + 1)
+            vwall(G, wing.sy0, wing.sy1, court_x1 + 1)
+
+            if is_ground:
+                lab_cols = cells(lab_x0, lab_x1, [13, 14])
+                hwall(G, lab_x0, lab_x1, wing.sub_wall)
+                lab_ids = [
+                    [f"{key}-physics-lab", f"{key}-computer-lab"],
+                    [f"{key}-biology-lab", f"{key}-chemistry-lab"],
+                ]
+                sub_rows = [(wing.sy0, wing.sub_wall - 1), (wing.sub_wall + 1, wing.sy1)]
+                for c, (cx0, cx1) in enumerate(lab_cols):
+                    if c > 0:
+                        vwall(G, wing.sy0, wing.sy1, cx0 - 1)
+                    rw = cx1 - cx0 + 1
+                    for r, (ry0, ry1) in enumerate(sub_rows):
+                        room_id = lab_ids[r][c]
+                        rh = ry1 - ry0 + 1
+                        add_room(room_id, cx0, ry0, rw, rh)
+                        add_board(f"board-{room_id}", cx0, ry0, rw)
+                        add_desk(room_id, cx0 + rw // 2, ry0 + 1, DESK_GIDS[2])
+                        add_chairs(room_id, cx0, ry0, rw, rh, "up", max_rows=1)
+                        targets.append((room_id, (cx0 + rw // 2, ry0 + rh // 2)))
+                    # back-row labs open off the front row, as a connected suite
+                    door_h(G, (cx0 + cx1) // 2, wing.sub_wall, FLOOR[area_id])
+                    door_h(G, (cx0 + cx1) // 2, wing.wall_s, FLOOR[area_id])
+                # the chemistry lab also opens onto the courtyard
+                door_v(G, lab_x1 + 1, sub_rows[1][0] + 1, FLOOR[area_id])
+
+                court_id = f"{key}-small-ground"
+                fill_rect(G, court_x0, wing.sy0, COURT_W, SOUTH_H, FIELD)
+                add_room(court_id, court_x0, wing.sy0, COURT_W, SOUTH_H)
+                for tx in (court_x0 + 3, court_x1 - 3):
+                    add_prop("tree", tx, wing.sy0 + 3)
+                add_prop("bench", court_x0 + COURT_W // 2, wing.sy1 - 2)
+                targets.append((court_id, (court_x0 + COURT_W // 2, wing.sy0 + SOUTH_H // 2)))
+            else:
+                terrace_id = f"{key}-terrace"
+                terrace_w = court_x1 - lab_x0 + 1
+                fill_rect(G, lab_x0, wing.sy0, terrace_w, SOUTH_H, PLAZA)
+                add_room(terrace_id, lab_x0, wing.sy0, terrace_w, SOUTH_H)
+                for tx in range(lab_x0 + 4, court_x1 - 3, 12):
+                    add_prop("planter", tx, wing.sy0 + 2)
+                add_prop("bench", lab_x0 + terrace_w // 2, wing.sy1 - 2)
+                targets.append((terrace_id, (lab_x0 + terrace_w // 2, wing.sy0 + SOUTH_H // 2)))
+                door_h(G, (lab_x0 + court_x1) // 2, wing.wall_s, FLOOR[area_id], width=4)
+
+            block = cells(block_x0, block_x1, BLOCK_CELLS)
+            for i, (cx0, cx1) in enumerate(block):
+                if i > 0:
+                    vwall(G, wing.sy0, wing.sy1, cx0 - 1)
+                door_h(G, (cx0 + cx1) // 2, wing.wall_s, FLOOR[area_id])
+                if i >= len(south_ids):
+                    continue
+                rw = cx1 - cx0 + 1
+                add_classroom(south_ids[i], cx0, wing.sy0, rw, SOUTH_H)
+                targets.append((south_ids[i], (cx0 + rw // 2, wing.sy0 + SOUTH_H // 2)))
+
+            if is_ground:
+                door_h(G, (court_x0 + court_x1) // 2, wing.wall_s, FLOOR[area_id], width=3)
+
+            # --- east column: reception lobby, library, offices
+            if is_ground:
+                vwall(G, wing.y0 + 1, wing.y0 + wing.h - 2, wing.east_wall)
+                door_v(G, wing.east_wall, wing.cmid, CORRIDOR_GID)
+                lobby_x1 = wing.ex0 + 3
+                inner_wall = lobby_x1 + 1
+                fill_rect(G, wing.ex0, wing.ny0, EAST_W, wing.h - 2, EAST_GID)
+                vwall(G, wing.y0 + 1, wing.y0 + wing.h - 2, inner_wall)
+
+                reception_id = f"{key}-reception"
+                add_room(reception_id, wing.ex0, wing.ny0, 4, wing.h - 2)
+                targets.append((reception_id, (wing.ex0 + 1, wing.cmid)))
+
+                east_ids = [f"{key}-library", spec["east_mid"], spec["east_bottom"]]
+                east_rows = cells(wing.ny0, wing.y0 + wing.h - 2, EAST_ROWS)
+                for i, (ry0, ry1) in enumerate(east_rows):
+                    if i > 0:
+                        hwall(G, inner_wall, wing.ex1, ry0 - 1)
+                    door_v(G, inner_wall, (ry0 + ry1) // 2, EAST_GID)
+                    rh = ry1 - ry0 + 1
+                    rw = wing.ex1 - inner_wall
+                    add_room(east_ids[i], inner_wall + 1, ry0, rw, rh)
+                    add_desk(east_ids[i], inner_wall + 1 + rw // 2, ry0 + 1, DESK_GIDS[1])
+                    add_chairs(east_ids[i], inner_wall + 1, ry0, rw, rh, "down", max_rows=1)
+                    targets.append((east_ids[i], (inner_wall + 1 + rw // 2, ry0 + rh // 2)))
+                add_board(f"board-{key}-reception", wing.ex0, wing.ny0, 4)
+
+            areas.append(
+                area_obj(next_id, area_id, fx - 2, fy - 1, wing.w + 4, wing.h + 2, label)
+            )
+            next_id += 1
+
+            add_ambient(wing.mx0 + 12, wing.cmid, area_id)
+            add_ambient(wing.mx0 + 46, wing.cmid, area_id)
+            add_ambient(wing.mx0 + 80, wing.cmid, area_id)
+
+            reach_targets[area_id] = targets
+
+    # ------------------------------------------------------ portals between areas
+    for spec in WINGS:
+        building_id = spec["building"]
+        ground = wing_floors[spec["ground"]]
+        upper = wing_floors[spec["first"]]
+        odx, ody = outdoor_doors[building_id]
+
+        portals.append(
+            portal_obj(
+                next_id,
+                f"enter-{building_id}",
+                odx,
+                ody,
+                spec["ground"],
+                ground.entry_tile[0],
+                ground.entry_tile[1],
+                f"Enter {spec['name']}",
+            )
+        )
+        next_id += 1
+        portals.append(
+            portal_obj(
+                next_id,
+                f"exit-{spec['ground']}",
+                ground.exit_tile[0],
+                ground.exit_tile[1],
+                "outdoor",
+                odx,
+                ody + 1,
+                "Exit to Campus",
+                tw=2,
+                th=CORR_H + 2,
+            )
+        )
+        next_id += 1
+        portals.append(
+            portal_obj(
+                next_id,
+                f"stairs-up-{spec['key']}",
+                ground.stair_tile[0],
+                ground.stair_tile[1],
+                spec["first"],
+                upper.stair_tile[0],
+                upper.cy0 + 1,
+                "Go Upstairs",
+                tw=3,
+                th=3,
+            )
+        )
+        next_id += 1
+        portals.append(
+            portal_obj(
+                next_id,
+                f"stairs-down-{spec['key']}",
+                upper.stair_tile[0],
+                upper.stair_tile[1],
+                spec["ground"],
+                ground.stair_tile[0],
+                ground.cy0 + 1,
+                "Go Downstairs",
+                tw=3,
+                th=3,
+            )
+        )
+        next_id += 1
+
+    # -------------------------------------------------------- outdoor triggers
+    outdoor_only = {
+        "walking-area": (WALK[0] + WALK[2] // 2, WALK[1] + WALK[3] + 1),
+        "parking": (PARK[0] + PARK[2] // 2, PARK[1] - 2),
+        "playground": (PLAY[0] + PLAY[2] // 2, PLAY[1] - 2),
+    }
+    for bid, (dx, dy) in {**outdoor_doors, **outdoor_only}.items():
+        buildings.append(building_door_obj(next_id, bid, dx, dy))
+        next_id += 1
+
+    # ------------------------------------------------------- outdoor dressing
+    for ty in range(10, gate_y, 3):
+        add_prop("dash", DRIVE_X, ty, 90)
+    for tx in range(12, DRIVE_X, 3):
+        add_prop("dash", tx, 6)
+        add_prop("dash", tx, 32)
+        add_prop("dash", tx, 60)
+    for tx in range(12, 112, 3):
+        add_prop("dash", tx, 86)
+
+    add_prop("goal", PLAY[0] + 4, PLAY[1] + PLAY[3] // 2)
+    add_prop("goal", PLAY[0] + PLAY[2] - 5, PLAY[1] + PLAY[3] // 2)
+    add_prop("swing", PLAY[0] + PLAY[2] // 2 - 5, PLAY[1] + 4)
+    add_prop("slide", PLAY[0] + PLAY[2] // 2 + 4, PLAY[1] + 4)
+    add_prop("sandpit", PLAY[0] + PLAY[2] // 2, PLAY[1] + PLAY[3] - 4)
+    add_prop("sign-parking", PARK[0] + PARK[2] // 2, PARK[1] - 1)
+    add_prop("flagpole", DRIVE_X - 8, 66)
+    for bx_ in (DRIVE_X - 10, DRIVE_X + 10):
+        add_prop("bin", bx_, 80)
+
+    walk_mid = WALK[0] + WALK[2] // 2
+    for wy in range(WALK[1] + 8, WALK[1] + WALK[3] - 8, 10):
+        add_prop("bench", walk_mid - 4, wy)
+        add_prop("tree", walk_mid + 5, wy + 3)
+        add_prop("lamp", walk_mid, wy + 6)
+
+    # Street lamps flanking the main drive and the two cross drives
+    for ty in range(12, gate_y - 2, 10):
+        add_prop("lamp", DRIVE_X - 4, ty)
+        add_prop("lamp", DRIVE_X + 4, ty)
+    for tx in range(16, DRIVE_X - 6, 14):
+        add_prop("lamp", tx, 29)
+        add_prop("lamp", tx, 57)
+
+    # -------------------------------------------------------------------- car
+    car_tile = (PARK[0] + 5, PARK[1] + 5)
+    vehicles.append(
+        point_obj(
+            next_id,
+            "campus-car",
+            car_tile[0],
+            car_tile[1],
+            [
+                {"name": "vehicleId", "type": "string", "value": "campus-car"},
+                {"name": "areaId", "type": "string", "value": "outdoor"},
+            ],
+        )
+    )
+    next_id += 1
+
+    # ----------------------------------------------------------------- people
+    a_door = outdoor_doors["a-level-block"]
+    o_door = outdoor_doors["o-level-block"]
+    npc_places = {
+        "npc-senior": (gate_x - 6, gate_y - 4),
+        "npc-teacher": (a_door[0] - 4, a_door[1] + 1),
+        "npc-clerk": (o_door[0] - 4, o_door[1] + 1),
+        "npc-librarian": (walk_mid, WALK[1] + WALK[3] - 4),
+        "npc-lab": (PLAY[0] + PLAY[2] // 2, PLAY[1] - 3),
+    }
+    for nid, (nx, ny) in npc_places.items():
+        npcs.append(point_obj(next_id, nid, nx, ny, [{"name": "npcId", "type": "string", "value": nid}]))
+        next_id += 1
+
+    for tx, ty in ((DRIVE_X - 12, 40), (DRIVE_X - 20, 70), (walk_mid, WALK[1] + 20)):
+        add_ambient(tx, ty, "outdoor")
+
+    spawn_tx, spawn_ty = gate_x, gate_y - 2
+    G[idx(spawn_tx, spawn_ty)] = ROAD
     spawns = [obj(next_id, "spawn_gate", spawn_tx * TW + TW // 2, spawn_ty * TH + TH // 2, 0, 0)]
     next_id += 1
 
     if chair_down:
-        for i, (chx, chy) in enumerate([(gate_x - 4, 32), (gate_x + 3, 32), (gate_x - 4, 34), (gate_x + 3, 34)]):
+        bench_spots = [(DRIVE_X - 12, 66), (DRIVE_X + 4, 66), (PLAY[0] - 3, PLAY[1] + 5)]
+        for i, (chx, chy) in enumerate(bench_spots):
             chairs.append(chair_obj(next_id, f"bench-{i}", chx, chy, chair_down, "down"))
             next_id += 1
 
-    for bucket in (portals, areas, rooms, boards, chairs, desks, decor, buildings, npcs, ambient_objs, spawns):
+    # ------------------------------------------------------------------- eggs
+    a_ground = wing_floors["a-level-ground"]
+    o_ground = wing_floors["o-level-ground"]
+    a_east_rows = cells(a_ground.ny0, a_ground.y0 + a_ground.h - 2, EAST_ROWS)
+    o_east_rows = cells(o_ground.ny0, o_ground.y0 + o_ground.h - 2, EAST_ROWS)
+    a_inner = a_ground.ex0 + 4
+    o_inner = o_ground.ex0 + 4
+    egg_spots = [
+        ("cq-gate-start", gate_x + 5, gate_y - 5),
+        ("cq-forms-desk", a_inner + 5, a_east_rows[1][0] + 4),
+        ("cq-library-quiet", a_inner + 5, a_east_rows[0][0] + 5),
+        ("cq-fee-hours", PARK[0] + PARK[2] - 4, PARK[1] + 3),
+        ("cq-lab-rule", a_ground.mx0 + 6, a_ground.sy0 + 2),
+        ("cq-canteen-manners", o_inner + 5, o_east_rows[2][0] + 3),
+    ]
+    eggs = []
+    for eid, etx, ety in egg_spots:
+        eggs.append(point_obj(next_id, eid, etx, ety, [{"name": "eggId", "type": "string", "value": eid}]))
+        next_id += 1
+
+    # --------------------------------------------------------- reachability
+    problems: List[str] = []
+    outdoor_reach = flood(G, colliding, (spawn_tx, spawn_ty), 0, 0, OUT_W - 1, OUT_H - 1)
+    for bid, (dx, dy) in {**outdoor_doors, **outdoor_only}.items():
+        if (dx, dy) not in outdoor_reach:
+            problems.append(f"outdoor trigger '{bid}' at ({dx},{dy}) is unreachable from the gate")
+    if (car_tile[0], car_tile[1]) not in outdoor_reach:
+        problems.append("the campus car is parked on an unreachable tile")
+
+    for area_id, targets in reach_targets.items():
+        wing = wing_floors[area_id]
+        reach = flood(
+            G,
+            colliding,
+            wing.entry_tile,
+            wing.x0 - 1,
+            wing.y0,
+            wing.x0 + wing.w - 1,
+            wing.y0 + wing.h - 1,
+        )
+        for room_id, tile in targets:
+            if tile not in reach:
+                problems.append(f"{area_id}: '{room_id}' centre {tile} is walled off from the entrance")
+        if wing.exit_tile not in reach:
+            problems.append(f"{area_id}: the campus exit is walled off")
+    if problems:
+        raise SystemExit("Layout is not walkable:\n  - " + "\n  - ".join(problems))
+
+    for bucket in (
+        portals,
+        areas,
+        rooms,
+        boards,
+        chairs,
+        desks,
+        decor,
+        buildings,
+        npcs,
+        ambient_objs,
+        spawns,
+        eggs,
+        vehicles,
+        facades,
+        props,
+    ):
         for item in bucket:
             item["id"] = next_id
             next_id += 1
 
-    layers = [
-        {"id": 1, "name": "Ground", "type": "tilelayer", "width": W, "height": H, "x": 0, "y": 0, "opacity": 1, "visible": True, "data": G},
-        {"id": 2, "name": "spawns", "type": "objectgroup", "draworder": "topdown", "x": 0, "y": 0, "opacity": 1, "visible": True, "objects": spawns},
-        {"id": 3, "name": "areas", "type": "objectgroup", "draworder": "topdown", "x": 0, "y": 0, "opacity": 1, "visible": True, "objects": areas},
-        {"id": 4, "name": "portals", "type": "objectgroup", "draworder": "topdown", "x": 0, "y": 0, "opacity": 1, "visible": True, "objects": portals},
-        {"id": 5, "name": "buildings", "type": "objectgroup", "draworder": "topdown", "x": 0, "y": 0, "opacity": 1, "visible": True, "objects": buildings},
-        {"id": 6, "name": "rooms", "type": "objectgroup", "draworder": "topdown", "x": 0, "y": 0, "opacity": 1, "visible": True, "objects": rooms},
-        {"id": 7, "name": "boards", "type": "objectgroup", "draworder": "topdown", "x": 0, "y": 0, "opacity": 1, "visible": True, "objects": boards},
-        {"id": 8, "name": "npcs", "type": "objectgroup", "draworder": "topdown", "x": 0, "y": 0, "opacity": 1, "visible": True, "objects": npcs},
-        {"id": 9, "name": "ambient", "type": "objectgroup", "draworder": "topdown", "x": 0, "y": 0, "opacity": 1, "visible": True, "objects": ambient_objs},
-        {"id": 10, "name": "Chair", "type": "objectgroup", "draworder": "topdown", "x": 0, "y": 0, "opacity": 1, "visible": True, "objects": chairs},
-        {"id": 11, "name": "Objects", "type": "objectgroup", "draworder": "topdown", "x": 0, "y": 0, "opacity": 1, "visible": True, "objects": decor},
-        {"id": 12, "name": "ObjectsOnCollide", "type": "objectgroup", "draworder": "topdown", "x": 0, "y": 0, "opacity": 1, "visible": True, "objects": desks},
+    def objectgroup(lid: int, name: str, objects: List[dict]) -> dict:
+        return {
+            "id": lid,
+            "name": name,
+            "type": "objectgroup",
+            "draworder": "topdown",
+            "x": 0,
+            "y": 0,
+            "opacity": 1,
+            "visible": True,
+            "objects": objects,
+        }
+
+    layers: List[dict] = [
+        {
+            "id": 1,
+            "name": "Ground",
+            "type": "tilelayer",
+            "width": W,
+            "height": H,
+            "x": 0,
+            "y": 0,
+            "opacity": 1,
+            "visible": True,
+            "data": G,
+        }
     ]
-    lid = 13
+    lid = 2
+    for name, bucket in (
+        ("spawns", spawns),
+        ("areas", areas),
+        ("portals", portals),
+        ("buildings", buildings),
+        ("rooms", rooms),
+        ("boards", boards),
+        ("npcs", npcs),
+        ("ambient", ambient_objs),
+        ("eggs", eggs),
+        ("vehicles", vehicles),
+        ("facades", facades),
+        ("props", props),
+        ("Chair", chairs),
+        ("Objects", decor),
+        ("ObjectsOnCollide", desks),
+    ):
+        layers.append(objectgroup(lid, name, bucket))
+        lid += 1
     for name in ("Wall", "GenericObjects", "GenericObjectsOnCollide", "Basement", "VendingMachine", "benches"):
-        layers.append(
-            {"id": lid, "name": name, "type": "objectgroup", "draworder": "topdown", "x": 0, "y": 0, "opacity": 1, "visible": True, "objects": []}
-        )
+        layers.append(objectgroup(lid, name, []))
         lid += 1
 
     out = {
@@ -730,21 +1150,24 @@ def main() -> None:
             {
                 "name": "campusquest_note",
                 "type": "string",
-                "value": "Outdoor campus + separate interior islands. Portal enter/exit. tools/gen_lgs_campus.py",
+                "value": "Excalidraw-derived campus: two long 2-storey wings + interior floor islands. tools/gen_lgs_campus.py",
             }
         ],
     }
 
     os.makedirs(MAPS_DIR, exist_ok=True)
-    with open(OUT_MAP, "w") as f:
-        json.dump(out, f, separators=(",", ":"))
-    with open(OUT_CAMPUS, "w") as f:
-        json.dump(out, f, separators=(",", ":"))
+    for path in (OUT_MAP, OUT_CAMPUS):
+        with open(path, "w") as f:
+            json.dump(out, f, separators=(",", ":"))
+        print(f"Wrote {path}")
 
-    print(f"Wrote {OUT_MAP}")
-    print(f"Wrote {OUT_CAMPUS}")
-    print(f"Size {W}x{H} | portals={len(portals)} areas={len(areas)} rooms={len(rooms)} chairs={len(chairs)}")
-    print("Outdoor shells + interior islands. Press E at doors to enter/exit.")
+    classroom_count = sum(
+        len(classroom_ids(spec["key"], floor)) for spec in WINGS for floor in ("ground", "first")
+    )
+    print(
+        f"Size {W}x{H} | classrooms={classroom_count} rooms={len(rooms)} boards={len(boards)} "
+        f"portals={len(portals)} areas={len(areas)} chairs={len(chairs)} eggs={len(eggs)} cars={len(vehicles)}"
+    )
 
 
 if __name__ == "__main__":

@@ -11,11 +11,12 @@ import { closeBuilding } from '../stores/BuildingStore'
 import { getBuildingById } from '../content/buildings'
 import LibraryModal from './LibraryModal'
 import NoticeBoardModal from './NoticeBoardModal'
+import { font } from '../theme'
 
 const Backdrop = styled.div`
   position: fixed;
   inset: 0;
-  background: rgba(14, 16, 28, 0.72);
+  background: rgba(4, 16, 22, 0.88);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -23,21 +24,22 @@ const Backdrop = styled.div`
 `
 
 const Panel = styled.div`
-  width: 420px;
+  font-family: ${font.body};
+  width: 440px;
   max-width: 90vw;
   max-height: 85vh;
   overflow-y: auto;
-  background: #222639;
-  border-radius: 16px;
+  background: #123338;
+  border-radius: 28px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-  border: 1px solid #3ad4ce55;
+  border: 1px solid #fde68a55;
 `
 
 const Photo = styled.div<{ hasImage: boolean }>`
   width: 100%;
   height: 180px;
   border-radius: 16px 16px 0 0;
-  background: linear-gradient(160deg, #2f3251 0%, #1a1d2b 100%);
+  background: linear-gradient(160deg, #1a4a50 0%, #0b1f24 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -55,7 +57,7 @@ const PhotoPlaceholder = styled.div`
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  color: #c9a227;
+  color: #fde68a;
   padding: 16px;
   text-align: center;
 
@@ -65,7 +67,7 @@ const PhotoPlaceholder = styled.div`
 
   span {
     font-size: 13px;
-    color: #9aa3b8;
+    color: #94b0b4;
     max-width: 260px;
     line-height: 1.4;
   }
@@ -90,14 +92,14 @@ const TipBanner = styled.div`
   margin-bottom: 16px;
   padding: 10px 12px;
   border-radius: 8px;
-  background: #c9a22722;
-  border: 1px solid #c9a22766;
-  color: #f0e2a8;
+  background: #fb718522;
+  border: 1px solid #fb718566;
+  color: #e0f2f1;
   font-size: 13px;
   line-height: 1.4;
 
   svg {
-    color: #c9a227;
+    color: #fde68a;
     font-size: 18px;
     margin-top: 1px;
     flex-shrink: 0;
@@ -106,20 +108,21 @@ const TipBanner = styled.div`
 
 const Name = styled.h2`
   margin: 0 0 4px;
-  color: #eef1f6;
-  font-size: 22px;
+  color: #e0f2f1;
+  font-family: ${font.display};
+  font-size: 24px;
 `
 
 const Tagline = styled.p`
   margin: 0 0 16px;
-  color: #33ac96;
+  color: #fb7185;
   font-size: 14px;
   font-weight: 600;
 `
 
 const Description = styled.p`
   margin: 0 0 20px;
-  color: #c2c2c2;
+  color: #94b0b4;
   font-size: 15px;
   line-height: 1.5;
 `
@@ -134,7 +137,7 @@ const WhoToAsk = styled.div`
   border-top: 1px solid #ffffff1a;
 
   svg {
-    color: #33ac96;
+    color: #fb7185;
     font-size: 18px;
   }
 `

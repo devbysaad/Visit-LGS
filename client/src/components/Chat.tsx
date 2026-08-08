@@ -18,6 +18,7 @@ import { getColorByString } from '../util'
 import { useAppDispatch, useAppSelector } from '../hooks'
 import { MessageType, setFocused, setShowChat } from '../stores/ChatStore'
 import { sanitizeChatMessage, MAX_CHAT_LENGTH } from '../utils/moderation'
+import { surface, accent, font, radius, cq } from '../theme'
 
 const Backdrop = styled.div`
   position: fixed;
@@ -27,6 +28,7 @@ const Backdrop = styled.div`
   width: 500px;
   max-height: 50%;
   max-width: 100%;
+  font-family: ${font.body};
 `
 
 const Wrapper = styled.div`
@@ -44,13 +46,16 @@ const FabWrapper = styled.div`
 const ChatHeader = styled.div`
   position: relative;
   height: 35px;
-  background: #000000a7;
-  border-radius: 10px 10px 0px 0px;
+  background: ${cq.deep}e8;
+  border-radius: ${radius.sm} ${radius.sm} 0 0;
+  border: 1px solid ${accent.butter}44;
+  border-bottom: none;
 
   h3 {
-    color: #fff;
+    color: ${accent.butter};
     margin: 7px;
     font-size: 17px;
+    font-family: ${font.display};
     text-align: center;
   }
 
@@ -65,8 +70,9 @@ const ChatBox = styled(Box)`
   height: 100%;
   width: 100%;
   overflow: auto;
-  background: #2c2c2c;
-  border: 1px solid #00000029;
+  background: ${surface.raised};
+  border: 1px solid ${accent.butter}44;
+  border-top: none;
 `
 
 const MessageWrapper = styled.div`
@@ -94,17 +100,18 @@ const MessageWrapper = styled.div`
   }
 
   :hover {
-    background: #3a3a3a;
+    background: ${surface.alt};
   }
 `
 
 const InputWrapper = styled.form`
   box-shadow: 10px 10px 10px #00000018;
-  border: 1px solid #42eacb;
-  border-radius: 0px 0px 10px 10px;
+  border: 1px solid ${accent.coral};
+  border-top: 1px solid ${accent.butter}44;
+  border-radius: 0 0 ${radius.sm} ${radius.sm};
   display: flex;
   flex-direction: row;
-  background: linear-gradient(180deg, #000000c1, #242424c0);
+  background: linear-gradient(180deg, ${cq.deep}c1, ${cq.panel}c0);
 `
 
 const InputTextField = styled(InputBase)`

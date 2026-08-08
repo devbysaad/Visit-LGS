@@ -14,16 +14,16 @@ Human-editable source of truth for campus copy. Runtime mirrors: `client/src/con
 
 | id | Display name | Tagline | Description | Photo | Who to ask | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| `main-gate` | Main Gate | Where orientation begins | This is the campus entrance. Come in through here when you arrive, and watch for cars at pickup time. If you need directions, ask at reception just inside. | — (add `main-gate.jpg` when ready) | Reception desk | Placeholder |
-| `admin-office` | Admin Office | Forms, letters, and records | Visit for admissions follow-ups, certificates, and official letters. Bring your student ID. | — | Office clerk | Placeholder |
-| `fee-counter` | Fee Counter | Pay and collect fee slips | Fee submissions and challan queries. Keep receipts. Peak queues near term start. | — | Accounts desk | Placeholder |
-| `library` | Library | Quiet study and book issue | Borrow textbooks and use reading space. Follow silence rules; return dates matter. Opens shelf + book reader in-game. | — | Librarian | Placeholder |
+| `main-gate` | Main Gate | Where orientation begins | The campus entrance. Cars come through here at drop-off and pickup, so keep to the footpath. Reception is just inside if you need directions. | — | Reception desk | Placeholder |
+| `block-a` | Academic Block A | Two floors · 16 classrooms | Classes 6 and 7 on the ground floor, 8 and 9 upstairs. Enter at the door, then take the stairwell at the west end of the corridor. | — | Class teacher | Placeholder |
+| `block-b` | Academic Block B | Two floors · 14 classrooms | Classes 10 and 11 on the ground floor; 11, 12 and the Cambridge sections upstairs. | — | Class teacher | Placeholder |
+| `admin-office` | Administration Block | Principal, Admin and Accounts | One building, three desks: Principal Office, Admin Office for certificates and letters, Accounts Office for fees and challans. | — | Office clerk | Placeholder |
+| `library` | Library | Quiet study and book issue | Borrow textbooks and use the reading hall. Research PCs are in the back room. Opens shelf + book reader in-game. | — | Librarian | Placeholder |
 | `canteen` | Canteen | Snacks and break time | Food and short breaks between periods. Keep queues orderly; dispose of litter. | — | Canteen staff | Placeholder |
-| `science-lab` | Science Lab | Experiments and practicals | Lab coats/rules when posted. Never enter unsupervised practicals. | — | Lab attendant | Placeholder |
-| `computer-lab` | Computer Lab | IT practicals | Login with school credentials when issued. No unauthorised installs. | — | IT teacher | Placeholder |
-| `classrooms` | Classrooms Block | Daily lessons | Find your section on the timetable notice board. Be seated before the bell. | — | Class teacher | Placeholder |
-| `sports-ground` | Sports Ground | PE and house matches | PE kit on sports days. Stay clear of active matches unless participating. | — | PE teacher | Placeholder |
-| `notice-board` | Notice Board | Timetables and announcements | Check daily for substitutions, event notices, and exam schedules. Open the board to read staff pins and write a short note others can see. | — | — | Placeholder |
+| `science-lab` | Laboratories | Science and Computer practicals | Two labs share this building. Lab coats in Science; school credentials in Computer. | — | Lab attendant | Placeholder |
+| `playground` | Playground | PE, house matches and breaks | The small ground beside the south loop. PE kit on sports days. | — | PE teacher | Placeholder |
+| `parking` | Parking | Staff and visitor bays | Marked bays for staff and visitors. A campus car is parked here — press E beside it to drive. | — | Security guard | Placeholder |
+| `notice-board` | Notice Board | Campus news & student pins | Fullscreen corkboard — staff notices, campus buzz, and notes anyone online can pin. | — | — | Placeholder |
 
 ---
 
@@ -44,33 +44,46 @@ Shelf titles opened from the Library building modal (`client/src/content/books.t
 
 Press **E** at an outdoor door to fade into a separate interior map island (`portals` → `areas` camera bounds). Outside campus disappears while you are inside. Then Press E on a labelled room (`client/src/content/rooms.ts`).
 
+### Academic Block A (`block-a`) — two floors, 16 classrooms
+
+Ground floor area `block-a-f1`, first floor `block-a-f2`. Room ids are `a1-c1`…`a1-c8` and
+`a2-c1`…`a2-c8`.
+
+| Floor | Rooms |
+| --- | --- |
+| Ground | Class 6-A, 6-B, 6-C, 6-D, 7-A, 7-B, 7-C, 7-D |
+| First | Class 8-A, 8-B, 8-C, 8-D, 9-A, 9-B, 9-C, 9-D |
+
+### Academic Block B (`block-b`) — two floors, 14 classrooms
+
+Ground floor area `block-b-f1`, first floor `block-b-f2`. Room ids are `b1-c1`…`b1-c7` and
+`b2-c1`…`b2-c7`.
+
+| Floor | Rooms |
+| --- | --- |
+| Ground | Class 10-A, 10-B, 10-C, 10-D, 11-A, 11-B, 11-C |
+| First | Class 11-D, 12-A, 12-B, 12-C, 12-D, Cambridge O-Level, Cambridge A-Level |
+
+Every classroom has a whiteboard that opens the shared campus notice board, a teacher desk and
+chairs facing the board.
+
+### Administration (`admin-office`, area `admin`)
+
+| id | Name |
+| --- | --- |
+| `principal-office` | Principal Office |
+| `accounts-office` | Accounts Office |
+| `admin-office-room` | Admin Office |
+| `admin-waiting` | Waiting Area |
+| `staff-room` | Staff Room |
+
 ### Library (`library`)
 
 | id | Name |
 | --- | --- |
-| `lib-study-area` | Study Area |
-| `lib-computer-lab` | Library Computer Lab |
 | `lib-stacks` | Book Stacks |
-| `lib-admin` | Library Admin Desk |
-| `lib-washrooms` | Washrooms |
-
-### Classrooms block (`classrooms`)
-
-| id | Name |
-| --- | --- |
-| `class-math` | Math Classroom |
-| `class-physics` | Physics Classroom |
-| `class-computer` | Computer Classroom |
-| `lab-computer` | Computer Lab |
-| `lab-physics` | Physics Lab |
-
-### Admin (`admin-office`)
-
-| id | Name |
-| --- | --- |
-| `admin-waiting` | Waiting Area |
-| `admin-office-room` | Admin Office |
-| `admin-balcony` | Balcony |
+| `lib-study-area` | Study Hall |
+| `lib-computer-lab` | Research PCs |
 
 ### Canteen (`canteen`)
 
@@ -78,7 +91,14 @@ Press **E** at an outdoor door to fade into a separate interior map island (`por
 | --- | --- |
 | `canteen-hall` | Canteen Hall |
 
-Fee counter, notice board, science/computer lab doors, and sports ground stay as outdoor building info (no separate interior island yet).
+### Laboratories (`science-lab`, area `labs`)
+
+| id | Name |
+| --- | --- |
+| `lab-science` | Science Lab |
+| `lab-computer` | Computer Lab |
+
+The notice board, playground and parking stay as outdoor building info (no interior island).
 
 ---
 
@@ -106,27 +126,28 @@ Opening the outdoor **Notice Board** or any classroom whiteboard opens the same 
 | id | Name | Location (near) | Dialogue (lines) | Quest hook | Status |
 | --- | --- | --- | --- | --- | --- |
 | `npc-senior` | Ayesha (Senior) | `main-gate` | 1) “Welcome to Gudwal campus!” 2) “Start at Admin if you still have forms.” 3) “Canteen is past the courtyard — follow the path.” 4) “Press J anytime to see your hunt objectives.” | Starts hunt if not started | Placeholder |
-| `npc-clerk` | Mr. Hassan | `admin-office` | 1) “Admin handles certificates and letters.” 2) “Fee Counter is next door for payments.” 3) “Keep a copy of every slip you submit.” | Optional tip for fee step | Placeholder |
+| `npc-clerk` | Mr. Hassan | `admin-office` | 1) Three desks in here: Principal, Admin, Accounts. 2) Certificates and letters are mine; challans go to Accounts. 3) Keep a copy of every slip. | Optional tip for the accounts step | Placeholder |
 | `npc-lab` | Ms. Sara | `science-lab` | 1) “Labs need supervision — don’t wander in alone.” 2) “Safety goggles when the sign says so.” 3) “Computer Lab is across the corridor.” | — | Placeholder |
 | `npc-librarian` | Ms. Nadia | `library` | 1) “Silence helps everyone revise.” 2) “Issue desk is at the front.” 3) “Return books before the stamped date.” | — | Placeholder |
-| `npc-teacher` | Mr. Imran | `classrooms` | 1) Classrooms inside this block. 2) Sit facing the board. 3) Write notes on classroom boards. 4) Labs need a teacher. | — | Placeholder |
+| `npc-teacher` | Mr. Imran | `block-a` | 1) Classrooms inside this block. 2) Sit facing the board. 3) Write notes on classroom boards. 4) Labs need a teacher. | — | Placeholder |
 
 ---
 
 ## Scavenger hunt
 
 **id:** `orientation-hunt-v1`  
-**contentVersion:** `1` (bump when steps change — invalidates old `localStorage`)  
-**Intro:** “Explore campus and check in at five key places. Open your quest log with J.”  
+**contentVersion:** `2` (bump when steps change — invalidates old `localStorage`)  
+**Intro:** “Explore campus and check in at six key places. Open your quest log with J.”  
 **Reward:** “Orientation complete — you know your way around Gudwal. See you on day one!”
 
 | Step | Objective text | targetType | targetId | Completion line |
 | --- | --- | --- | --- | --- |
-| 1 | Visit the Admin Office | building | `admin-office` | “Admin found. Next: Fee Counter.” |
-| 2 | Find the Fee Counter | building | `fee-counter` | “Fees desk checked. Next: Library.” |
-| 3 | Enter the Library | building | `library` | “Library checked. Next: Science Lab.” |
-| 4 | Check the Science Lab | building | `science-lab` | “Lab found. Last stop: Canteen.” |
-| 5 | Find the Canteen | building | `canteen` | “Hunt complete!” |
+| 1 | Visit the Administration Block | building | `admin-office` | “Admin found — Principal, Admin and Accounts are all in there. Next: Block A.” |
+| 2 | Find your classroom in Academic Block A | building | `block-a` | “Block A checked. Next: the Library.” |
+| 3 | Enter the Library | building | `library` | “Library checked. Next: the Laboratories.” |
+| 4 | Check the Laboratories | building | `science-lab` | “Labs found. Next: the Playground.” |
+| 5 | Walk out to the Playground | building | `playground` | “Playground found. Last stop: the Canteen.” |
+| 6 | Find the Canteen | building | `canteen` | “Hunt complete!” |
 
 ---
 

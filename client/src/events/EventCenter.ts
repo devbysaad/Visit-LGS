@@ -19,5 +19,8 @@ export enum Event {
   ROOM_INTERACT = 'room-interact',
   BOARD_INTERACT = 'board-interact',
   PORTAL_ENTER = 'portal-enter',
+  EGG_INTERACT = 'egg-interact',
   QUEST_LOG_TOGGLE = 'quest-log-toggle',
+  DRIVING_CHANGED = 'driving-changed',
+  AREA_CHANGED = 'area-changed',
 }

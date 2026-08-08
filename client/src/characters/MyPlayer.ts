@@ -16,10 +16,16 @@ import store from '../stores'
 import { pushPlayerJoinedMessage } from '../stores/ChatStore'
 import { ItemType } from '../../../types/Items'
 import { NavKeys } from '../../../types/KeyboardState'
+import EggZone from '../zones/EggZone'
+import Car, { CarDirection } from '../items/Car'
+
+const WALK_SPEED = 200
+const DRIVE_SPEED = 430
 
 export default class MyPlayer extends Player {
   private playContainerBody: Phaser.Physics.Arcade.Body
   private chairOnSit?: Chair
+  private carDriven?: Car
   constructor(
     scene: Phaser.Scene,
     x: number,
@@ -44,6 +50,47 @@ export default class MyPlayer extends Player {
     phaserEvents.emit(Event.MY_PLAYER_TEXTURE_CHANGE, this.x, this.y, this.anims.currentAnim.key)
   }
 
+  get isDriving() {
+    return this.playerBehavior === PlayerBehavior.DRIVING
+  }
+
+  private boardCar(car: Car, playerSelector: PlayerSelector, network: Network) {
+    this.carDriven = car
+    this.playerBehavior = PlayerBehavior.DRIVING
+    car.clearDialogBox()
+    car.driverId = this.playerId
+    this.setVisible(false)
+    this.playerContainer.setVisible(false)
+    playerSelector.selectedItem = undefined
+    playerSelector.setPosition(0, 0)
+    this.setVelocity(0, 0)
+    car.driveTo(this.x, this.y)
+    phaserEvents.emit(Event.DRIVING_CHANGED, true)
+    network.updatePlayerRiding(true)
+  }
+
+  private leaveCar(playerSelector: PlayerSelector, cursors: NavKeys, network: Network) {
+    const car = this.carDriven
+    this.playerBehavior = PlayerBehavior.IDLE
+    this.setVisible(true)
+    this.playerContainer.setVisible(true)
+    this.setVelocity(0, 0)
+    this.playContainerBody.setVelocity(0, 0)
+    if (car) {
+      car.driverId = undefined
+      car.park(this.x, this.y + 4)
+      // Step out beside the car so E does not instantly re-board it
+      this.setPosition(this.x - 48, this.y)
+      this.playerContainer.setPosition(this.x, this.y - 30)
+    }
+    this.carDriven = undefined
+    playerSelector.setPosition(this.x, this.y)
+    playerSelector.update(this, cursors)
+    phaserEvents.emit(Event.DRIVING_CHANGED, false)
+    network.updatePlayerRiding(false)
+    network.updatePlayer(this.x, this.y, this.anims.currentAnim.key)
+  }
+
   update(
     playerSelector: PlayerSelector,
     cursors: NavKeys,
@@ -59,6 +106,14 @@ export default class MyPlayer extends Player {
         // Portals first — enter/exit buildings before doorway info cards
         if (Phaser.Input.Keyboard.JustDown(keyE) && item?.itemType === ItemType.PORTAL) {
           ;(item as PortalZone).onInteract()
+          return
+        }
+        if (Phaser.Input.Keyboard.JustDown(keyE) && item?.itemType === ItemType.EGG) {
+          ;(item as EggZone).onInteract()
+          return
+        }
+        if (Phaser.Input.Keyboard.JustDown(keyE) && item?.itemType === ItemType.CAR) {
+          this.boardCar(item as Car, playerSelector, network)
           return
         }
         if (Phaser.Input.Keyboard.JustDown(keyE) && item?.itemType === ItemType.BUILDING) {
@@ -125,7 +180,7 @@ export default class MyPlayer extends Player {
           return
         }
 
-        const speed = 200
+        const speed = WALK_SPEED
         let vx = 0
         let vy = 0
 
@@ -182,6 +237,34 @@ export default class MyPlayer extends Player {
           network.updatePlayer(this.x, this.y, this.anims.currentAnim.key)
         }
         break
+
+      case PlayerBehavior.DRIVING: {
+        if (Phaser.Input.Keyboard.JustDown(keyE)) {
+          this.leaveCar(playerSelector, cursors, network)
+          return
+        }
+
+        let dx = 0
+        let dy = 0
+        if (cursors.left?.isDown || cursors.A?.isDown) dx -= DRIVE_SPEED
+        if (cursors.right?.isDown || cursors.D?.isDown) dx += DRIVE_SPEED
+        if (cursors.up?.isDown || cursors.W?.isDown) dy -= DRIVE_SPEED
+        if (cursors.down?.isDown || cursors.S?.isDown) dy += DRIVE_SPEED
+
+        this.setVelocity(dx, dy)
+        if (dx !== 0 || dy !== 0) this.body.velocity.setLength(DRIVE_SPEED)
+        this.playContainerBody.setVelocity(dx, dy)
+
+        let facing: CarDirection | undefined
+        if (Math.abs(dx) > Math.abs(dy)) facing = dx > 0 ? 'right' : 'left'
+        else if (dy !== 0) facing = dy > 0 ? 'down' : 'up'
+        if (facing) this.carDriven?.setFacing(facing)
+
+        this.carDriven?.driveTo(this.x, this.y)
+        this.setDepth(this.y)
+        if (dx !== 0 || dy !== 0) network.updatePlayer(this.x, this.y, this.anims.currentAnim.key)
+        break
+      }
     }
   }
 }

@@ -13,8 +13,8 @@ const Wrapper = styled.div`
   left: 50%;
   transform: translateX(-50%);
   z-index: 400;
-  background: #222639;
-  border: 1px solid #33ac96;
+  background: #123338;
+  border: 1px solid #fb7185;
   border-radius: 10px;
   padding: 10px 18px;
   display: flex;
@@ -36,7 +36,7 @@ const Wrapper = styled.div`
   }
 
   svg {
-    color: #33ac96;
+    color: #fb7185;
     flex-shrink: 0;
   }
 `

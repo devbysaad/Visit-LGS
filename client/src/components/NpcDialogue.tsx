@@ -12,8 +12,8 @@ const Wrapper = styled.div`
   transform: translateX(-50%);
   width: 520px;
   max-width: 90vw;
-  background: #222639;
-  border: 2px solid #33ac96;
+  background: #123338;
+  border: 2px solid #fb7185;
   border-radius: 12px;
   padding: 16px 20px;
   box-shadow: 0px 0px 15px #00000090;
@@ -22,7 +22,7 @@ const Wrapper = styled.div`
 `
 
 const Name = styled.div`
-  color: #33ac96;
+  color: #fb7185;
   font-weight: 700;
   font-size: 14px;
   margin-bottom: 6px;

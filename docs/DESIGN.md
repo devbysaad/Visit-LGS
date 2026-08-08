@@ -13,26 +13,27 @@ In-world UI scales/occludes with the camera. Overlay UI does not.
 
 ## Colour tokens (CSS custom properties)
 
+Code source of truth: `client/src/theme.ts` — **deep teal + coral + butter**, Fraunces/Manrope. Not SkyOffice slate/mint, not NUST navy/gold.
+
 ```css
---bg-panel: #222639;
---bg-panel-alt: #2f3251;
---bg-scrim: rgba(14, 16, 28, 0.72);
---accent: #33ac96;
---accent-hover: #45cbb0;
---border-glow: #3ad4ce;
---text-primary: #eef1f6;
---text-muted: #9aa3b8;
---lgs-brand: /* from official LGS logo — logo, primary CTA, quest-complete only */;
+--bg-deep: #0b1f24;
+--bg-panel: #123338;
+--bg-panel-alt: #1a4a50;
+--bg-scrim: rgba(4, 16, 22, 0.88);
+--accent: #fb7185;       /* coral */
+--accent-hot: #fda4af;
+--border-glow: #fde68a;  /* butter */
+--text-primary: #e0f2f1;
+--text-muted: #94b0b4;
 ```
 
-Chat usernames: fixed palette of six high-contrast hues assigned by name hash (see chat inspo: Kevin orange, Dax pink, Jen-Yu green).
-
-**Do not** recolour the whole chrome to LGS brand. Dark navy is intentional for pixel readability.
+Chat usernames: fixed palette of six high-contrast hues assigned by name hash.
 
 ## Typography
 
-- **Pixel/bitmap:** in-world only; strings of five words or fewer (nameplates, prompts, quest titles).
-- **UI prose:** system UI stack, 14–16px, line-height 1.5 (building descriptions, NPC lines, help).
+- **Display:** Fraunces (brand, modal titles, chat header).
+- **Body:** Manrope 14–16px, line-height 1.5.
+- **Pixel/bitmap:** in-world only; strings of five words or fewer (nameplates, prompts).
 
 ## Pixel fidelity
 

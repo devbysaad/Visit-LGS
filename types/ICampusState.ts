@@ -7,6 +7,7 @@ export interface IPlayer extends Schema {
   anim: string
   readyToConnect: boolean
   areaId: string
+  riding: boolean
 }
 
 export interface IChatMessage extends Schema {

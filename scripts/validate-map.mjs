@@ -30,6 +30,20 @@ function extractIds(source) {
   return ids
 }
 
+/**
+ * rooms.ts builds its 30 classrooms from a `[id, name, block, floor]` tuple table
+ * rather than 30 object literals, so pick those ids up too.
+ */
+function extractTupleIds(source) {
+  const ids = new Set()
+  const pattern = /\[\s*['"]([a-z0-9-]+)['"]\s*,\s*['"][^'"]+['"]\s*,/gi
+  let match
+  while ((match = pattern.exec(source))) {
+    ids.add(match[1])
+  }
+  return ids
+}
+
 /** Extracts `{ targetType: 'building', targetId: 'foo' }`-ish pairs from quests.ts. */
 function extractQuestTargets(source) {
   const targets = []
@@ -54,7 +68,8 @@ function main() {
   const map = JSON.parse(readFileSync(MAP_PATH, 'utf-8'))
   const buildingIds = extractIds(readFileSync(BUILDINGS_TS, 'utf-8'))
   const npcIds = extractIds(readFileSync(NPCS_TS, 'utf-8'))
-  const roomIds = extractIds(readFileSync(ROOMS_TS, 'utf-8'))
+  const roomsSource = readFileSync(ROOMS_TS, 'utf-8')
+  const roomIds = new Set([...extractIds(roomsSource), ...extractTupleIds(roomsSource)])
   const questTargets = extractQuestTargets(readFileSync(QUESTS_TS, 'utf-8'))
 
   const getLayer = (name) => map.layers.find((layer) => layer.name === name)

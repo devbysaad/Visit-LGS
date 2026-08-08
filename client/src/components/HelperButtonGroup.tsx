@@ -8,10 +8,13 @@ import LightModeIcon from '@mui/icons-material/LightMode'
 import DarkModeIcon from '@mui/icons-material/DarkMode'
 import CloseIcon from '@mui/icons-material/Close'
 import LightbulbIcon from '@mui/icons-material/Lightbulb'
+import MenuBookIcon from '@mui/icons-material/MenuBook'
 
 import { BackgroundMode } from '../../../types/BackgroundMode'
 import { toggleBackgroundMode } from '../stores/UserStore'
+import { openCodex } from '../stores/EggStore'
 import { useAppSelector, useAppDispatch } from '../hooks'
+import { surface, accent, font, radius } from '../theme'
 
 const Backdrop = styled.div`
   position: fixed;
@@ -31,10 +34,12 @@ const Backdrop = styled.div`
 const Wrapper = styled.div`
   position: relative;
   font-size: 16px;
+  font-family: ${font.body};
   color: #eee;
-  background: #222639;
+  background: ${surface.raised};
   box-shadow: 0px 0px 5px #0000006f;
-  border-radius: 16px;
+  border-radius: ${radius.lg};
+  border: 1px solid ${accent.butter}55;
   padding: 15px 35px 15px 15px;
   display: flex;
   flex-direction: column;
@@ -57,14 +62,17 @@ const ButtonGroup = styled.div`
 `
 
 const Title = styled.h3`
-  font-size: 24px;
-  color: #eee;
+  font-size: 22px;
+  font-family: ${font.display};
+  color: ${accent.coral};
   text-align: center;
 `
 
 const StyledFab = styled(Fab)<{ target?: string }>`
+  background: ${surface.alt} !important;
+  color: #e0f2f1 !important;
   &:hover {
-    color: #33ac96;
+    color: ${accent.coral} !important;
   }
 `
 
@@ -100,7 +108,11 @@ export default function HelperButtonGroup() {
                 <strong>W, A, S, D or arrow keys</strong> to move
               </li>
               <li>
-                <strong>E</strong> to enter a building, talk to an NPC, or sit on a bench
+                <strong>E</strong> at doors, stairs, chairs, boards, NPCs and coral clue markers
+              </li>
+              <li>
+                <strong>E</strong> beside the car in the parking bay to drive; <strong>E</strong>{' '}
+                again to step out
               </li>
               <li>
                 <strong>Enter</strong> to open chat
@@ -117,14 +129,19 @@ export default function HelperButtonGroup() {
             </ul>
             <p className="tip">
               <LightbulbIcon />
-              Walk onto a building doorway (look for the name label) and press E. Talk to Ayesha at
-              the gate if you need a tip — then follow the hunt: Admin → Fee → Library → Science Lab
-              → Canteen.
+              Blocks A and B have two floors — take the stairwell at the west end of each corridor.
+              Find the glowing coral clue markers, press E and guess; the Codex (book icon) lists
+              what you have unlocked.
             </p>
           </Wrapper>
         )}
       </div>
       <ButtonGroup>
+        <Tooltip title="Clue Codex">
+          <StyledFab size="small" onClick={() => dispatch(openCodex())}>
+            <MenuBookIcon />
+          </StyledFab>
+        </Tooltip>
         <Tooltip title="Control Guide">
           <StyledFab size="small" onClick={() => setShowControlGuide(!showControlGuide)}>
             <HelpOutlineIcon />

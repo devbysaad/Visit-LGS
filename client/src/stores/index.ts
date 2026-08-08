@@ -10,6 +10,9 @@ import authReducer from './AuthStore'
 import noticeBoardReducer from './NoticeBoardStore'
 import roomInfoReducer from './RoomInfoStore'
 import boardReducer from './BoardStore'
+import connectionReducer from './ConnectionStore'
+import eggReducer from './EggStore'
+import checkpointReducer from './CheckpointStore'
 
 enableMapSet()
 
@@ -25,6 +28,9 @@ const store = configureStore({
     noticeBoard: noticeBoardReducer,
     roomInfo: roomInfoReducer,
     board: boardReducer,
+    connection: connectionReducer,
+    egg: eggReducer,
+    checkpoint: checkpointReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

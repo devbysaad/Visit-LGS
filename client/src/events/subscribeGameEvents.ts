@@ -5,12 +5,11 @@ import { openNpc } from '../stores/NpcStore'
 import { openRoom } from '../stores/RoomInfoStore'
 import { completeQuestStepIfMatch, startQuestIfNeeded, toggleQuestLog } from '../stores/QuestStore'
 import { getNpcById } from '../content/npcs'
+import phaserGame from '../PhaserGame'
+import CampusScene from '../scenes/CampusScene'
 
 /**
- * The one subscription module described in AGENTS.md / docs/ARCHITECTURE.md: Phaser
- * (BuildingZone, PortalZone, NpcZone, RoomZone, BoardZone) only ever emits typed events on `phaserEvents`; this module is
- * the sole place that turns those events into Redux dispatches (portal enter stays in Phaser — teleport + camera). Imported once from
- * `index.tsx` after the store exists.
+ * Phaser zones emit events here; this module alone dispatches Redux / network calls.
  */
 export function subscribeGameEvents() {
   phaserEvents.on(Event.BUILDING_INTERACT, (buildingId: string) => {
@@ -22,9 +21,13 @@ export function subscribeGameEvents() {
     store.dispatch(openRoom(roomId))
   })
 
-  // Classroom whiteboards open the same fullscreen campus notice board (shared pins)
   phaserEvents.on(Event.BOARD_INTERACT, () => {
     store.dispatch(openBuilding('notice-board'))
+  })
+
+  phaserEvents.on(Event.EGG_INTERACT, (eggId: string) => {
+    const scene = phaserGame.scene.keys.game as CampusScene | undefined
+    scene?.network.approachEgg(eggId)
   })
 
   phaserEvents.on(Event.NPC_INTERACT, (npcId: string) => {

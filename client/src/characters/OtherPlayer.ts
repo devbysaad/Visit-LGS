@@ -1,11 +1,14 @@
 import Phaser from 'phaser'
 import Player from './Player'
 import { sittingShiftData } from './Player'
+import { CAR_KEYS, carKeyForDirection, createCarTextures } from '../items/CarTextures'
 
 export default class OtherPlayer extends Player {
   private targetPosition: [number, number]
   private lastUpdateTimestamp?: number
   private playContainerBody: Phaser.Physics.Arcade.Body
+  private riding = false
+  private carSprite?: Phaser.GameObjects.Image
 
   constructor(
     scene: Phaser.Scene,
@@ -60,13 +63,35 @@ export default class OtherPlayer extends Player {
           this.areaId = value
         }
         break
+
+      case 'riding':
+        if (typeof value === 'boolean') this.setRiding(value)
+        break
     }
   }
 
+  private setRiding(riding: boolean) {
+    this.riding = riding
+    if (riding && !this.carSprite) {
+      createCarTextures(this.scene)
+      this.carSprite = this.scene.add.image(this.x, this.y - 6, CAR_KEYS.down)
+    }
+    if (!riding && this.carSprite) {
+      this.carSprite.destroy()
+      this.carSprite = undefined
+    }
+    // The driver sits inside the car, so hide the walking sprite
+    this.setVisible(!riding && this.areaId === this.currentAreaId)
+  }
+
+  private currentAreaId = 'outdoor'
+
   setAreaVisible(currentAreaId: string) {
+    this.currentAreaId = currentAreaId
     const show = this.areaId === currentAreaId
-    this.setVisible(show)
+    this.setVisible(show && !this.riding)
     this.playerContainer.setVisible(show)
+    this.carSprite?.setVisible(show && this.riding)
     if (!show) {
       this.setVelocity(0, 0)
       this.playContainerBody.setVelocity(0, 0)
@@ -75,6 +100,7 @@ export default class OtherPlayer extends Player {
 
   destroy(fromScene?: boolean) {
     this.playerContainer.destroy()
+    this.carSprite?.destroy()
 
     super.destroy(fromScene)
   }
@@ -96,6 +122,16 @@ export default class OtherPlayer extends Player {
 
     this.lastUpdateTimestamp = t
     this.setDepth(this.y) // change player.depth based on player.y
+    if (this.carSprite) {
+      const dirX = this.targetPosition[0] - this.x
+      const dirY = this.targetPosition[1] - this.y
+      if (Math.abs(dirX) > 2 || Math.abs(dirY) > 2) {
+        const facing =
+          Math.abs(dirX) > Math.abs(dirY) ? (dirX > 0 ? 'right' : 'left') : dirY > 0 ? 'down' : 'up'
+        this.carSprite.setTexture(carKeyForDirection(facing))
+      }
+      this.carSprite.setPosition(this.x, this.y - 6).setDepth(this.y + 1)
+    }
     const animParts = this.anims.currentAnim.key.split('_')
     const animState = animParts[1]
     if (animState === 'sit') {

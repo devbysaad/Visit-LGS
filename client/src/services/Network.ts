@@ -12,6 +12,13 @@ import {
   pushPlayerLeftMessage,
 } from '../stores/ChatStore'
 import { setNoticePosts, pushNoticePost } from '../stores/NoticeBoardStore'
+import { connectionLost } from '../stores/ConnectionStore'
+import {
+  openEggDialog,
+  eggResult,
+  eggAnnounced,
+  syncProgress,
+} from '../stores/EggStore'
 import { sanitizeName, sanitizeChatMessage, sanitizeNoticePost } from '../utils/moderation'
 
 export default class Network {
@@ -112,6 +119,38 @@ export default class Network {
       phaserEvents.emit(Event.UPDATE_DIALOG_BUBBLE, clientId, content)
     })
 
+    this.room.onMessage(Message.EGG_APPROACH, (payload) => {
+      store.dispatch(
+        openEggDialog({
+          eggId: payload.egg.id,
+          prompt: payload.egg.prompt,
+          hint: payload.egg.hint,
+          solved: payload.solved,
+          solvedBy: payload.solvedBy,
+          attemptsLeft: payload.attemptsLeft,
+        })
+      )
+    })
+
+    this.room.onMessage(Message.EGG_RESULT, (payload) => {
+      store.dispatch(eggResult(payload))
+    })
+
+    this.room.onMessage(Message.EGG_PROGRESS, (payload) => {
+      store.dispatch(syncProgress(payload))
+    })
+
+    this.room.onMessage(Message.EGG_ANNOUNCE, (payload: { text: string }) => {
+      store.dispatch(eggAnnounced(payload.text))
+    })
+
+    this.room.onLeave((code) => {
+      store.dispatch(connectionLost(`left (${code})`))
+    })
+    this.room.onError((code, message) => {
+      store.dispatch(connectionLost(message || `error ${code}`))
+    })
+
     phaserEvents.emit(Event.CAMPUS_ROOM_JOINED)
   }
 
@@ -150,6 +189,10 @@ export default class Network {
     this.room?.send(Message.UPDATE_PLAYER_AREA, { areaId })
   }
 
+  updatePlayerRiding(riding: boolean) {
+    this.room?.send(Message.UPDATE_PLAYER_RIDING, { riding })
+  }
+
   readyToConnect() {
     this.room?.send(Message.READY_TO_CONNECT)
     phaserEvents.emit(Event.MY_PLAYER_READY)
@@ -173,5 +216,13 @@ export default class Network {
       content: cleaned,
       boardId: boardId || 'campus-notice',
     })
+  }
+
+  approachEgg(eggId: string) {
+    this.room?.send(Message.EGG_APPROACH, { eggId })
+  }
+
+  answerEgg(eggId: string, guess: string) {
+    this.room?.send(Message.EGG_ANSWER, { eggId, guess })
   }
 }

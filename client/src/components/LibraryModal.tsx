@@ -27,10 +27,10 @@ const Panel = styled.div`
   max-width: 92vw;
   max-height: 88vh;
   overflow-y: auto;
-  background: #222639;
+  background: #123338;
   border-radius: 16px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-  border: 1px solid #3ad4ce55;
+  border: 1px solid #fde68a55;
   position: relative;
 `
 
@@ -55,7 +55,7 @@ const Name = styled.h2`
 
 const Tagline = styled.p`
   margin: 0 0 12px;
-  color: #33ac96;
+  color: #fb7185;
   font-size: 14px;
   font-weight: 600;
 `
@@ -77,7 +77,7 @@ const SectionLabel = styled.h3`
   gap: 8px;
 
   svg {
-    color: #33ac96;
+    color: #fb7185;
     font-size: 20px;
   }
 `
@@ -101,13 +101,13 @@ const BookRow = styled.button`
   padding: 12px 14px;
   border-radius: 10px;
   border: 1px solid #ffffff1a;
-  background: #2f3251;
+  background: #1a4a50;
   color: #eef1f6;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 
   &:hover {
-    border-color: #33ac96;
+    border-color: #fb7185;
     background: #353a5c;
   }
 
@@ -177,8 +177,8 @@ const NavButton = styled.button<{ disabled?: boolean }>`
   gap: 4px;
   padding: 8px 12px;
   border-radius: 8px;
-  border: 1px solid #33ac96;
-  background: ${(p) => (p.disabled ? '#2f325155' : '#33ac96')};
+  border: 1px solid #fb7185;
+  background: ${(p) => (p.disabled ? '#1a4a5055' : '#fb7185')};
   color: ${(p) => (p.disabled ? '#9aa3b8' : '#0e101c')};
   font-weight: 600;
   font-size: 13px;
@@ -199,7 +199,7 @@ const BackRow = styled.button`
   padding: 0;
   border: none;
   background: none;
-  color: #33ac96;
+  color: #fb7185;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;

@@ -58,7 +58,7 @@ const Name = styled.h2`
   gap: 8px;
 
   svg {
-    color: #33ac96;
+    color: #fb7185;
   }
 `
 
@@ -134,7 +134,7 @@ const TextArea = styled.textarea`
   font-size: 14px;
 
   &:focus {
-    outline: 2px solid #33ac96;
+    outline: 2px solid #fb7185;
     border-color: transparent;
   }
 `
@@ -154,7 +154,7 @@ const PostButton = styled.button<{ disabled?: boolean }>`
   padding: 8px 16px;
   border-radius: 8px;
   border: none;
-  background: ${(p) => (p.disabled ? '#2f3251' : '#33ac96')};
+  background: ${(p) => (p.disabled ? '#1a4a50' : '#fb7185')};
   color: ${(p) => (p.disabled ? '#9aa3b8' : '#0e101c')};
   font-weight: 700;
   font-size: 13px;

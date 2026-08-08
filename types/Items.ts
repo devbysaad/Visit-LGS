@@ -6,5 +6,7 @@ export enum ItemType {
   ROOM,
   BOARD,
   PORTAL,
+  EGG,
+  CAR,
 }
 

@@ -40,13 +40,15 @@ Phaser enables collision **only** on `Collision` via `setCollisionByProperty({ c
 | Layer name | Object type / use | Required custom properties |
 | --- | --- | --- |
 | `spawns` | Spawn points | `name` = `spawn_gate` (required). Optional later: `spawn_admin`, etc. |
-| `areas` | Camera/physics bounds rectangles | `areaId` (`outdoor`, `library`, `classrooms`, `admin`, `canteen`), optional `displayName` |
+| `areas` | Camera/physics bounds rectangles | `areaId` (`outdoor`, `block-a-f1`, `block-a-f2`, `block-b-f1`, `block-b-f2`, `admin`, `library`, `canteen`, `labs`), optional `displayName` |
 | `portals` | Door enter/exit triggers | `portalId`, `targetArea`, `spawnTileX`, `spawnTileY`, `label` |
 | `buildings` | Building doorway info rectangles | `buildingId` (string, must match `content/buildings.ts`) |
 | `rooms` | Interior room rectangles | `roomId` (string, must match `content/rooms.ts`) |
 | `boards` | Writable classroom/notice boards | `boardId` |
 | `npcs` | NPC anchor points | `npcId` (string, must match `content/npcs.ts`) |
 | `ambient` | Local-only student/staff walkers | `ambientId`, `areaId` |
+| `vehicles` | Drivable car spawn points | `vehicleId`, `areaId` (outdoor only) |
+| `eggs` | Orientation clue markers | `eggId` (answers live server-side) |
 | `benches` | Sit targets | optional `benchId` |
 | `kiosks` | Notice boards | `buildingId` or `kioskId` matching content |
 
@@ -54,7 +56,8 @@ Object sizes should be large enough for comfortable overlap (~1–2 tiles paddin
 
 ## ID naming rules
 
-- Lowercase kebab or snake: `admin-office`, `fee-counter`, `science-lab`
+- Lowercase kebab or snake: `admin-office`, `science-lab`, `block-a`
+- Classroom ids are `<block><floor>-c<n>` — e.g. `a1-c3` is Block A, ground floor, third room
 - Same id string in: Tiled property, `buildings.ts` / `npcs.ts` key, quest `targetId`
 - Never rename an id without updating map + content + quests in one change
 
@@ -98,7 +101,19 @@ yarn gen-map    # tools/gen_lgs_campus.py → assets/map/map.json + assets/maps/
 yarn validate-map
 ```
 
-Layout (fictional, typical college): south **main gate** → spine path → **admin / fee / notice** → plaza → **classrooms** → **library** → NW **sports**. Enterable buildings are **solid outdoor shells**; Press E at the door fades into a **separate interior island** east of campus (void gap). Camera bounds (`areas`) hide everything outside that building until you exit.
+Layout (fictional, one campus with everything): south **main gate** → main drive → **Administration**
+(Principal / Admin / Accounts) at the head of the assembly plaza, **Academic Block A** west and
+**Academic Block B** east, **Library**, **Canteen** and the **Laboratories** along the north side,
+**parking** south-west and a small **playground** south-east. A drivable ring road links them all.
+
+Enterable buildings are **solid outdoor shells**; Press E at the door fades into a **separate
+interior island** east of campus (void gap). Camera bounds (`areas`) hide everything outside that
+floor until you exit.
+
+Blocks A and B are two storeys. Each floor is its own `areaId` and its own island; the stairwell at
+the west end of each corridor is an ordinary portal pair between the two floor areas. Block A holds
+16 classrooms (8 per floor), Block B holds 14 (8 + 6 usable bays → 7 per floor), for **30 classrooms**
+total.
 
 ## Greybox guidance (real Gudwal later)
 

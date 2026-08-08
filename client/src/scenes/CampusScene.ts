@@ -5,6 +5,7 @@ import { createCharacterAnims } from '../anims/CharacterAnims'
 
 import Interactable from '../items/Interactable'
 import Chair from '../items/Chair'
+import Car from '../items/Car'
 import VendingMachine from '../items/VendingMachine'
 import '../characters/MyPlayer'
 import '../characters/OtherPlayer'
@@ -17,6 +18,7 @@ import NpcZone from '../zones/NpcZone'
 import RoomZone from '../zones/RoomZone'
 import BoardZone from '../zones/BoardZone'
 import PortalZone, { PortalTarget } from '../zones/PortalZone'
+import EggZone from '../zones/EggZone'
 import Network from '../services/Network'
 import { IPlayer } from '../../../types/ICampusState'
 import { PlayerBehavior } from '../../../types/PlayerBehavior'
@@ -35,7 +37,9 @@ import { getBuildingById } from '../content/buildings'
 import { getNpcById } from '../content/npcs'
 import { getRoomById } from '../content/rooms'
 import { getBoardById } from '../content/boards'
-import { DEFAULT_AREA_ID } from '../content/areas'
+import { DEFAULT_AREA_ID, getAreaById } from '../content/areas'
+import { arriveAtCheckpoint } from '../stores/CheckpointStore'
+import { addVignette, decorateCampus, drawFacades, drawProps } from './CampusDecor'
 
 const DEFAULT_SPAWN = { x: 705, y: 500 }
 const TILE = 32
@@ -46,18 +50,22 @@ function interactionPriority(itemType: ItemType): number {
   switch (itemType) {
     case ItemType.CHAIR:
       return 0
-    case ItemType.BOARD:
+    case ItemType.EGG:
       return 1
-    case ItemType.PORTAL:
+    case ItemType.CAR:
+      return 1
+    case ItemType.BOARD:
       return 2
-    case ItemType.NPC:
+    case ItemType.PORTAL:
       return 3
-    case ItemType.VENDINGMACHINE:
+    case ItemType.NPC:
       return 4
-    case ItemType.ROOM:
+    case ItemType.VENDINGMACHINE:
       return 5
-    case ItemType.BUILDING:
+    case ItemType.ROOM:
       return 6
+    case ItemType.BUILDING:
+      return 7
     default:
       return 99
   }
@@ -78,6 +86,9 @@ export default class CampusScene extends Phaser.Scene {
   private areaBounds = new Map<string, AreaBounds>()
   private currentAreaId = DEFAULT_AREA_ID
   private transitioning = false
+  private cars: Car[] = []
+  private minimap?: Phaser.Cameras.Scene2D.Camera
+  private vignette?: Phaser.GameObjects.Image
 
   constructor() {
     super('game')
@@ -177,6 +188,8 @@ export default class CampusScene extends Phaser.Scene {
     const boardZones = this.createBoardZones()
     const portalZones = this.createPortalZones()
     const npcZones = this.createNpcZones()
+    const eggZones = this.createEggZones()
+    this.cars = this.createCars()
     this.createAmbientCharacters()
 
     this.otherPlayers = this.physics.add.group({ classType: OtherPlayer })
@@ -203,6 +216,8 @@ export default class CampusScene extends Phaser.Scene {
       ...roomZones,
       ...boardZones,
       ...npcZones,
+      ...eggZones,
+      ...this.cars,
     ]
     if (interactables.length > 0) {
       this.physics.add.overlap(
@@ -221,6 +236,151 @@ export default class CampusScene extends Phaser.Scene {
     this.network.onMyPlayerReady(this.handleMyPlayerReady, this)
     this.network.onPlayerUpdated(this.handlePlayerUpdated, this)
     this.network.onChatMessageAdded(this.handleChatMessageAdded, this)
+
+    this.dressCampus(groundLayer)
+    this.createMinimap()
+
+    // Gate greeting once near spawn
+    store.dispatch(arriveAtCheckpoint('spawn_gate'))
+    this.showAreaTitle(this.currentAreaId)
+  }
+
+  private dressCampus(groundLayer: Phaser.Tilemaps.TilemapLayer) {
+    drawFacades(this, this.map)
+    drawProps(this, this.map)
+
+    const terrain = this.map.getTileset('Terrain') as Phaser.Tilemaps.Tileset | null
+    const outdoor = this.areaBounds.get(DEFAULT_AREA_ID)
+    if (terrain && outdoor) {
+      decorateCampus(this, {
+        groundLayer,
+        grassFirstGid: terrain.firstgid,
+        outdoor,
+      })
+    }
+
+    this.vignette = addVignette(this)
+  }
+
+  private createMinimap() {
+    const size = 168
+    const margin = 18
+    const cam = this.cameras.add(
+      this.scale.width - size - margin,
+      margin,
+      size,
+      size,
+      false,
+      'minimap'
+    )
+    cam.setZoom(0.11)
+    cam.setBackgroundColor(0x0b1f24)
+    cam.startFollow(this.myPlayer, true)
+    if (this.vignette) cam.ignore(this.vignette)
+    this.minimap = cam
+
+    const frame = this.add
+      .graphics()
+      .setScrollFactor(0)
+      .setDepth(19500)
+      .lineStyle(2, 0xfde68a, 0.7)
+      .strokeRoundedRect(this.scale.width - size - margin, margin, size, size, 12)
+    cam.ignore(frame)
+
+    const dot = this.add.circle(0, 0, 26, 0xfb7185, 1).setDepth(19999)
+    this.cameras.main.ignore(dot)
+    this.events.on('update', () => dot.setPosition(this.myPlayer.x, this.myPlayer.y))
+
+    this.applyMinimapBounds(this.currentAreaId)
+  }
+
+  private applyMinimapBounds(areaId: string) {
+    const bounds = this.areaBounds.get(areaId)
+    if (!this.minimap || !bounds) return
+    this.minimap.setBounds(bounds.x, bounds.y, bounds.width, bounds.height)
+  }
+
+  private createCars(): Car[] {
+    const layer = this.map.getObjectLayer('vehicles')
+    if (!layer) return []
+
+    return layer.objects.reduce<Car[]>((cars, object) => {
+      const vehicleId = getStringProperty(object, 'vehicleId')
+      if (!vehicleId) return cars
+      const areaId = getStringProperty(object, 'areaId') ?? DEFAULT_AREA_ID
+      cars.push(new Car(this, object.x ?? 0, object.y ?? 0, vehicleId, areaId))
+      return cars
+    }, [])
+  }
+
+  /** Cinematic area card — replaces the old silent teleport. */
+  private showAreaTitle(areaId: string) {
+    const area = getAreaById(areaId)
+    if (!area) return
+
+    const cam = this.cameras.main
+    const cx = cam.width * 0.5
+    const cy = cam.height * 0.34
+
+    const title = this.add
+      .text(cx, cy, area.name.toUpperCase(), {
+        fontFamily: 'Fraunces, Palatino Linotype, serif',
+        fontSize: '30px',
+        color: '#fde68a',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(20000)
+      .setAlpha(0)
+
+    const subtitle = this.add
+      .text(cx, cy + 30, area.subtitle ?? '', {
+        fontFamily: 'Manrope, Avenir Next, sans-serif',
+        fontSize: '14px',
+        color: '#e0f2f1',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(20000)
+      .setAlpha(0)
+
+    const rule = this.add
+      .rectangle(cx, cy + 16, 0, 2, 0xfb7185, 0.9)
+      .setScrollFactor(0)
+      .setDepth(20000)
+
+    this.minimap?.ignore([title, subtitle, rule])
+
+    this.tweens.add({ targets: [title, subtitle], alpha: 1, duration: 320, ease: 'Quad.easeOut' })
+    this.tweens.add({ targets: rule, width: 200, duration: 460, ease: 'Cubic.easeOut' })
+    this.tweens.add({
+      targets: [title, subtitle, rule],
+      alpha: 0,
+      delay: 1700,
+      duration: 480,
+      onComplete: () => {
+        title.destroy()
+        subtitle.destroy()
+        rule.destroy()
+      },
+    })
+  }
+
+  private createEggZones(): EggZone[] {
+    const eggsLayer = this.map.getObjectLayer('eggs')
+    if (!eggsLayer) return []
+
+    return eggsLayer.objects.reduce<EggZone[]>((zones, object) => {
+      const eggId = getStringProperty(object, 'eggId')
+      if (!eggId) return zones
+      const x = object.x ?? 0
+      const y = object.y ?? 0
+      const zone = new EggZone(this, x, y, eggId)
+      zone.setDepth(y + 4000)
+      this.physics.add.existing(zone, true)
+      zones.push(zone)
+      return zones
+    }, [])
   }
 
   private parseAreaBounds() {
@@ -262,6 +422,7 @@ export default class CampusScene extends Phaser.Scene {
     this.cameras.main.setBounds(bounds.x, bounds.y, bounds.width, bounds.height)
     this.physics.world.setBounds(bounds.x, bounds.y, bounds.width, bounds.height)
     this.myPlayer?.setCollideWorldBounds(true)
+    this.applyMinimapBounds(areaId)
   }
 
   private createPortalZones(): PortalZone[] {
@@ -319,6 +480,7 @@ export default class CampusScene extends Phaser.Scene {
       this.refreshPresenceVisibility()
       this.network.updatePlayerArea(portal.targetArea)
       this.network.updatePlayer(portal.spawnX, portal.spawnY, this.myPlayer.anims.currentAnim.key)
+      this.showAreaTitle(portal.targetArea)
 
       cam.fadeIn(320, 8, 12, 22)
       cam.once('camerafadeincomplete', () => {
@@ -331,6 +493,7 @@ export default class CampusScene extends Phaser.Scene {
   private refreshPresenceVisibility() {
     this.otherPlayerMap.forEach((player) => player.setAreaVisible(this.currentAreaId))
     this.ambientCharacters.forEach((npc) => npc.setAreaVisible(this.currentAreaId))
+    this.cars.forEach((car) => car.setVisible(car.areaId === this.currentAreaId))
   }
 
   private createAmbientCharacters() {
@@ -384,7 +547,7 @@ export default class CampusScene extends Phaser.Scene {
           fontFamily: 'Arial, sans-serif',
           fontSize: '11px',
           color: '#eef1f6',
-          backgroundColor: '#222639cc',
+          backgroundColor: '#123338cc',
           padding: { x: 6, y: 3 },
         })
         .setOrigin(0.5, 1)
@@ -430,7 +593,7 @@ export default class CampusScene extends Phaser.Scene {
           fontFamily: 'Arial, sans-serif',
           fontSize: '10px',
           color: '#eef1f6',
-          backgroundColor: '#1a1d2bcc',
+          backgroundColor: '#123338cc',
           padding: { x: 4, y: 2 },
         })
         .setOrigin(0.5)
@@ -601,7 +764,7 @@ export default class CampusScene extends Phaser.Scene {
 
   update() {
     if (this.myPlayer && this.network && !this.transitioning) {
-      this.playerSelector.update(this.myPlayer, this.cursors)
+      if (!this.myPlayer.isDriving) this.playerSelector.update(this.myPlayer, this.cursors)
       this.myPlayer.update(this.playerSelector, this.cursors, this.keyE, this.network)
     }
   }

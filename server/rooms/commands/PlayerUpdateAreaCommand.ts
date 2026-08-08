@@ -2,7 +2,14 @@ import { Command } from '@colyseus/command'
 import { Client } from 'colyseus'
 import { ICampusState } from '../../../types/ICampusState'
 
-const ALLOWED_AREAS = new Set(['outdoor', 'library', 'classrooms', 'admin', 'canteen'])
+/** Mirrors client/src/content/areas.ts — one entry per camera-bounded area. */
+const ALLOWED_AREAS = new Set([
+  'outdoor',
+  'a-level-ground',
+  'a-level-first',
+  'o-level-ground',
+  'o-level-first',
+])
 
 type Payload = {
   client: Client

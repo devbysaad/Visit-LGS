@@ -22,22 +22,26 @@ import { sanitizeName, MAX_NAME_LENGTH } from '../utils/moderation'
 
 import phaserGame from '../PhaserGame'
 import CampusScene from '../scenes/CampusScene'
+import { surface, text, accent, font, radius, shadow, border, cq } from '../theme'
 
 const Wrapper = styled.form`
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: #222639;
-  border-radius: 16px;
-  padding: 36px 60px;
-  box-shadow: 0px 0px 5px #0000006f;
+  background: ${surface.raised};
+  border-radius: ${radius.lg};
+  padding: 40px 56px;
+  box-shadow: ${shadow.panel};
+  border: 1px solid ${border.strong};
+  font-family: ${font.body};
 `
 
 const Title = styled.p`
-  margin: 5px;
-  font-size: 20px;
-  color: #c2c2c2;
+  margin: 0 0 8px;
+  font-family: ${font.display};
+  font-size: 28px;
+  color: ${accent.butter};
   text-align: center;
 `
 
@@ -52,8 +56,9 @@ const RoomName = styled.div`
   align-items: center;
 
   h3 {
-    font-size: 24px;
-    color: #eee;
+    font-family: ${font.display};
+    font-size: 22px;
+    color: ${text.primary};
   }
 `
 
@@ -62,16 +67,19 @@ const RoomDescription = styled.div`
   max-height: 150px;
   overflow-wrap: anywhere;
   overflow-y: auto;
-  font-size: 16px;
-  color: #c2c2c2;
+  font-size: 15px;
+  color: ${text.muted};
   display: flex;
   justify-content: center;
 `
 
 const SubTitle = styled.h3`
   width: 160px;
-  font-size: 16px;
-  color: #eee;
+  font-size: 14px;
+  font-family: ${font.body};
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: ${accent.coral};
   text-align: center;
 `
 
@@ -84,18 +92,20 @@ const Left = styled.div`
   margin-right: 48px;
 
   --swiper-navigation-size: 24px;
+  --swiper-navigation-color: ${cq.butter};
 
   .swiper {
     width: 160px;
     height: 220px;
-    border-radius: 8px;
+    border-radius: ${radius.md};
     overflow: hidden;
+    border: 2px solid ${border.mint};
   }
 
   .swiper-slide {
     width: 160px;
     height: 220px;
-    background: #dbdbe0;
+    background: ${cq.panelLit};
     display: flex;
     justify-content: center;
     align-items: center;
@@ -162,7 +172,7 @@ export default function LoginDialog() {
 
   return (
     <Wrapper onSubmit={handleSubmit}>
-      <Title>Choose your avatar</Title>
+      <Title>Step onto campus</Title>
       <RoomName>
         <Avatar style={{ background: getColorByString(roomName) }}>
           {getAvatarString(roomName)}
@@ -170,11 +180,11 @@ export default function LoginDialog() {
         <h3>{roomName}</h3>
       </RoomName>
       <RoomDescription>
-        <ArrowRightIcon /> {roomDescription}
+        <ArrowRightIcon sx={{ color: '#fb7185' }} /> {roomDescription}
       </RoomDescription>
       <Content>
         <Left>
-          <SubTitle>Select an avatar</SubTitle>
+          <SubTitle>Pick a look</SubTitle>
           <Swiper
             modules={[Navigation]}
             navigation
@@ -195,9 +205,9 @@ export default function LoginDialog() {
           <TextField
             autoFocus
             fullWidth
-            label="Name"
+            label="Display name"
             variant="outlined"
-            color="secondary"
+            color="primary"
             value={name}
             inputProps={{ maxLength: MAX_NAME_LENGTH }}
             error={nameFieldEmpty}
@@ -206,12 +216,35 @@ export default function LoginDialog() {
               setName(e.target.value)
               setNameFieldEmpty(false)
             }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                color: '#e0f2f1',
+                fontFamily: 'Manrope, sans-serif',
+                '& fieldset': { borderColor: '#fb718555' },
+                '&:hover fieldset': { borderColor: '#fb7185' },
+              },
+              '& .MuiInputLabel-root': { color: '#94b0b4' },
+            }}
           />
         </Right>
       </Content>
       <Bottom>
-        <Button variant="contained" color="secondary" size="large" type="submit">
-          Join
+        <Button
+          variant="contained"
+          color="primary"
+          size="large"
+          type="submit"
+          sx={{
+            px: 4,
+            py: 1.2,
+            fontFamily: 'Fraunces, serif',
+            fontWeight: 700,
+            fontSize: 16,
+            borderRadius: '14px',
+            textTransform: 'none',
+          }}
+        >
+          Enter Gudwal
         </Button>
       </Bottom>
     </Wrapper>

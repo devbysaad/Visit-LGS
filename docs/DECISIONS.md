@@ -94,6 +94,14 @@ Append-only ADR log. Newest at the bottom.
 - **Revisit if:** A hand-authored or real-floorplan-derived map replaces the SkyOffice greybox —
   re-place objects in Tiled directly at that point.
 
+## ADR-021 — Orientation clue hunt (eggs) without wallet / NUST UI
+
+- **Date:** 2026-08-07
+- **Decision:** Port `__sa` scavenger Q&A mechanics (approach → guess → reveal, first-finder, Codex) into CampusQuest with **server-only answers**, in-memory claims (no Mongo/wallet), and **6 LGS-oriented clues** on a compact map. UI uses CampusQuest mint/Syne/DM Sans — never NUST navy/gold/Georgia. Skip PeerJS, whiteboards, multi-room interiors, and mobile controls.
+- **Rationale:** Feature parity on the hunt loop students care about, without violating AGENTS.md non-goals or copying NUST branding.
+- **Accepted cost:** Clue copy is placeholder / `needsLocalCheck` until Gudwal staff verify facts.
+- **Revisit when:** School supplies official orientation FAQ answers.
+
 ## ADR-020 — Interior islands + door portals (supersedes hollow footprints in ADR-019)
 
 - **Date:** 2026-08-05
@@ -162,3 +170,19 @@ Append-only ADR log. Newest at the bottom.
   `PlayerSelector`/`MyPlayer` treat "what does E do right now" uniformly.
 - **Revisit if:** Buildings/NPCs need their own visible on-map sprite/marker — extend
   `Interactable`, not `Item`.
+
+## ADR-022 — Multi-storey blocks are stacked areas, not a new scene
+
+- **Date:** 2026-08-08
+- **Decision:** Each floor of Academic Block A/B is its own `areaId` and its own interior island on the single map. The stairwell is an ordinary portal pair (`stairs-up-*` / `stairs-down-*`) between the two floor areas.
+- **Rationale:** Keeps ADR-004 (one map, one scene, one room) intact and reuses the portal/camera-bounds machinery from ADR-020 with no new systems. Presence filtering by `areaId` already hides players on the other floor.
+- **Revisit if:** We need players on different floors to see or hear each other, or a block grows past ~3 floors and the island grid becomes unwieldy.
+
+## ADR-023 — Drivable campus car reuses the player body
+
+- **Date:** 2026-08-08
+- **Decision:** Press E beside the parked car to drive it. While driving, the player sprite hides, the car sprite is glued to the player position, and walk speed rises from 200 to 430. The player's own Arcade body stays the collider; the car's static body is disabled while driven.
+- **Rationale:** A second physics body would need duplicate colliders against the ground layer, other players and every static group. Reusing the player body means driving inherits all existing collision and world-bounds behaviour for free.
+- **Consequence:** A new `riding` boolean on the Colyseus `Player` schema tells other clients to draw a car instead of a walking sprite. The car is outdoor-only and its art is baked procedurally at boot (`client/src/items/CarTextures.ts`) rather than shipped as a sprite sheet.
+- **Revisit if:** We want passengers, collisions that differ from walking, or vehicles inside interiors.
+

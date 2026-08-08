@@ -8,6 +8,7 @@ export class Player extends Schema implements IPlayer {
   @type('string') anim = 'adam_idle_down'
   @type('boolean') readyToConnect = false
   @type('string') areaId = 'outdoor'
+  @type('boolean') riding = false
 }
 
 export class ChatMessage extends Schema implements IChatMessage {

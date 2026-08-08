@@ -175,7 +175,7 @@ const ComposerDock = styled.form`
   padding: 14px;
   border-radius: 12px;
   background: #1b2430ee;
-  border: 1px solid #33ac9666;
+  border: 1px solid #fb718566;
   box-shadow: 0 8px 24px #00000066;
 `
 
@@ -193,7 +193,7 @@ const TextArea = styled.textarea`
   font-size: 14px;
 
   &:focus {
-    outline: 2px solid #33ac96;
+    outline: 2px solid #fb7185;
     border-color: transparent;
   }
 `
@@ -216,7 +216,7 @@ const PostButton = styled.button<{ disabled?: boolean }>`
   padding: 10px 14px;
   border-radius: 8px;
   border: none;
-  background: ${(p) => (p.disabled ? '#2f3251' : '#33ac96')};
+  background: ${(p) => (p.disabled ? '#1a4a50' : '#fb7185')};
   color: ${(p) => (p.disabled ? '#9aa3b8' : '#0e101c')};
   font-weight: 800;
   font-size: 13px;
@@ -254,7 +254,8 @@ export default function NoticeBoardModal() {
   const modalOpen = useAppSelector((state) => state.building.modalOpen)
   const selectedBuildingId = useAppSelector((state) => state.building.selectedBuildingId)
   const playerPosts = useAppSelector((state) => state.noticeBoard.posts)
-  const playerName = useAppSelector((state) => state.user.playerName)
+  const sessionId = useAppSelector((state) => state.user.sessionId)
+  const playerName = useAppSelector((state) => state.user.playerNameMap.get(sessionId))
   const [draft, setDraft] = useState('')
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState(false)

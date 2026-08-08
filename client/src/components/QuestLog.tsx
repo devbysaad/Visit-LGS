@@ -24,12 +24,12 @@ const Panel = styled.div`
   max-width: 90vw;
   max-height: 80vh;
   overflow-y: auto;
-  background: #222639;
+  background: #123338;
   border-radius: 16px;
   padding: 24px 28px;
   position: relative;
   box-shadow: 0px 0px 20px #00000090;
-  border: 1px solid #33ac9633;
+  border: 1px solid #fb718533;
 `
 
 const CloseButton = styled(IconButton)`
@@ -67,14 +67,14 @@ const StepItem = styled.li<{ current: boolean; done: boolean }>`
   gap: 10px;
   padding: 8px 10px;
   border-radius: 8px;
-  background: ${({ current }) => (current ? '#33ac9622' : 'transparent')};
+  background: ${({ current }) => (current ? '#fb718522' : 'transparent')};
   color: ${({ done }) => (done ? '#7c7c7c' : '#eee')};
   text-decoration: ${({ done }) => (done ? 'line-through' : 'none')};
   font-size: 14px;
 
   svg {
     flex-shrink: 0;
-    color: ${({ done }) => (done ? '#33ac96' : '#666')};
+    color: ${({ done }) => (done ? '#fb7185' : '#666')};
   }
 `
 
@@ -85,7 +85,7 @@ const Footer = styled.div`
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #33ac96;
+  color: #fb7185;
   font-size: 13px;
 
   svg {

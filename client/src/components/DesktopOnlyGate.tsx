@@ -22,7 +22,7 @@ const Card = styled.div`
 
   svg {
     font-size: 56px;
-    color: #33ac96;
+    color: #fb7185;
     margin-bottom: 16px;
   }
 `
